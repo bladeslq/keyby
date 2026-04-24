@@ -43,7 +43,7 @@ export default async function PropertiesPage() {
           <h1 className="text-2xl font-bold">Объекты</h1>
           <p className="text-muted-foreground text-sm mt-1">{properties.length} объектов в базе</p>
         </div>
-        <Button render={<Link href="/properties/new" />}>+ Новый объект</Button>
+        <Button nativeButton={false} render={<Link href="/properties/new" />}>+ Новый объект</Button>
       </div>
 
       <div className="border rounded-xl overflow-hidden">
@@ -98,7 +98,7 @@ export default async function PropertiesPage() {
                   })}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" render={<Link href={`/properties/${p.id}`} />}>
+                  <Button variant="ghost" size="sm" nativeButton={false} render={<Link href={`/properties/${p.id}`} />}>
                     <Pencil className="w-4 h-4 mr-1.5" />
                     Открыть
                   </Button>
