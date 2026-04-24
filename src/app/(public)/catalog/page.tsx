@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { PropertyCard } from '@/components/property-card'
-import { Property, DISTRICTS, PROPERTY_TYPE_LABELS } from '@/lib/types'
+import { CatalogFilters } from '@/components/catalog-filters'
+import { Property } from '@/lib/types'
 
 interface CatalogPageProps {
   searchParams: Promise<{ district?: string; type?: string; price_min?: string; price_max?: string }>
@@ -35,60 +36,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
         </div>
       </div>
 
-      {/* Filters */}
-      <form className="flex flex-wrap gap-3 mb-8">
-        <select
-          name="district"
-          defaultValue={params.district || ''}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-        >
-          <option value="">Все районы</option>
-          {DISTRICTS.map((d) => (
-            <option key={d} value={d}>{d}</option>
-          ))}
-        </select>
-
-        <select
-          name="type"
-          defaultValue={params.type || ''}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-        >
-          <option value="">Все типы</option>
-          {Object.entries(PROPERTY_TYPE_LABELS).map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
-        </select>
-
-        <input
-          name="price_min"
-          type="number"
-          placeholder="Цена от"
-          defaultValue={params.price_min || ''}
-          className="h-9 w-32 rounded-md border border-input bg-background px-3 text-sm"
-        />
-        <input
-          name="price_max"
-          type="number"
-          placeholder="Цена до"
-          defaultValue={params.price_max || ''}
-          className="h-9 w-32 rounded-md border border-input bg-background px-3 text-sm"
-        />
-
-        <button
-          type="submit"
-          className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          Найти
-        </button>
-        {Object.values(params).some(Boolean) && (
-          <a
-            href="/catalog"
-            className="h-9 px-4 rounded-md border text-sm font-medium flex items-center hover:bg-muted transition-colors"
-          >
-            Сбросить
-          </a>
-        )}
-      </form>
+      <CatalogFilters />
 
       {/* Grid */}
       {properties.length === 0 ? (
