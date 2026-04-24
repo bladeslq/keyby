@@ -1,0 +1,25 @@
+{
+  "name": "keyby-parser",
+  "version": "1.0.0",
+  "description": "WhatsApp parser for Keyby real estate platform",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "@supabase/supabase-js": "^2.43.0",
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "groq-sdk": "^1.1.2",
+    "pino": "^9.0.0",
+    "pino-pretty": "^11.0.0",
+    "qrcode": "^1.5.3",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
