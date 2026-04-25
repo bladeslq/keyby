@@ -157,14 +157,17 @@ export default function WhatsAppPage() {
     }
   }
 
-  function closeQrDialog() {
+  async function closeQrDialog() {
     wsRef.current?.close()
     setQrDialog(false)
     setQrCode(null)
-    if (pendingAccountId.current) {
-      fetch(`${process.env.NEXT_PUBLIC_PARSER_URL}/wa/account/${pendingAccountId.current}`, { method: 'DELETE' }).catch(() => {})
+    const id = pendingAccountId.current
+    if (id) {
       pendingAccountId.current = null
-      load()
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_PARSER_URL}/wa/account/${id}`, { method: 'DELETE' })
+      } catch {}
+      await load()
     }
   }
 
