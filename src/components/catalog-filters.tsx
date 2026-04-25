@@ -26,8 +26,8 @@ export function CatalogFilters() {
     router.push(`/catalog?${params.toString()}`)
   }
 
-  function handleSelect(key: string, value: string) {
-    update(key, value === ALL ? '' : value)
+  function handleSelect(key: string, value: string | null) {
+    update(key, !value || value === ALL ? '' : value)
   }
 
   function handlePriceBlur(key: string, value: string) {
