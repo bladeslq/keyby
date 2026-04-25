@@ -5,11 +5,18 @@ import axios from 'axios'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { SocksProxyAgent } from 'socks-proxy-agent'
+import { HttpsProxyAgent } from 'https-proxy-agent'
 import { parseMessage } from './parser.js'
 import { isDuplicate } from './dedup.js'
 import { createClient } from './db.js'
 
-const proxyAgent = process.env.PROXY_URL ? new SocksProxyAgent(process.env.PROXY_URL) : undefined
+function createProxyAgent(url) {
+  if (!url) return undefined
+  if (url.startsWith('socks')) return new SocksProxyAgent(url)
+  return new HttpsProxyAgent(url)
+}
+
+const proxyAgent = createProxyAgent(process.env.PROXY_URL)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
