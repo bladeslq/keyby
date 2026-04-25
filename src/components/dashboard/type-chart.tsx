@@ -48,10 +48,10 @@ export function TypeChart({ data }: { data: DataPoint[] }) {
                 borderRadius: '8px',
                 fontSize: '12px',
               }}
-              formatter={(value: number, name: string) => [
-                `${value} (${total > 0 ? Math.round((value / total) * 100) : 0}%)`,
-                name,
-              ]}
+              formatter={(value, name) => {
+                const v = Number(value)
+                return [`${v} (${total > 0 ? Math.round((v / total) * 100) : 0}%)`, String(name)]
+              }}
             />
             <Legend
               verticalAlign="bottom"
