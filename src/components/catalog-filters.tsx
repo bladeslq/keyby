@@ -17,7 +17,7 @@ export function CatalogFilters() {
   const priceMax = searchParams.get('price_max') || ''
   const hasFilters = district || type || priceMin || priceMax
 
-  function update(key: string, value: string) {
+  function update(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString())
     if (value) params.set(key, value)
     else params.delete(key)
