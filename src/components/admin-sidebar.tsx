@@ -40,14 +40,16 @@ export function AdminSidebar() {
     const channel = supabase
       .channel('new-properties')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'properties' }, (payload) => {
-        setNewCount((n) => n + 1)
+        loadCount()
         const title = payload.new?.title || 'Новый объект'
         toast.success(`Новый объект: ${title}`, {
-          description: [payload.new?.district, payload.new?.price ? `${payload.new.price.toLocaleString('ru')} ₽` : null]
+          description: [payload.new?.district, payload.new?.price ? `${Number(payload.new.price).toLocaleString('ru')} ₽` : null]
             .filter(Boolean).join(' · '),
           duration: 6000,
         })
       })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'properties' }, () => loadCount())
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'properties' }, () => loadCount())
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
