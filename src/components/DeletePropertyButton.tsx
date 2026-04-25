@@ -31,11 +31,11 @@ export function DeletePropertyButton({ id }: { id: string }) {
     <>
       <Button
         variant="ghost"
-        size="icon"
+        size="icon-sm"
         className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
         onClick={() => setOpen(true)}
       >
-        <Trash2 className="w-4 h-4" />
+        <Trash2 />
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
