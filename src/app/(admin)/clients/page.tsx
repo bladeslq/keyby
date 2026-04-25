@@ -45,6 +45,7 @@ export default function ClientsPage() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [matchClient, setMatchClient] = useState<Client | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   async function load() {
     const supabase = createClient()
@@ -104,11 +105,12 @@ export default function ClientsPage() {
     load()
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Удалить клиента?')) return
+  async function handleDelete() {
+    if (!deleteId) return
     const supabase = createClient()
-    await supabase.from('clients').delete().eq('id', id)
+    await supabase.from('clients').delete().eq('id', deleteId)
     toast.success('Клиент удалён')
+    setDeleteId(null)
     load()
   }
 
@@ -190,7 +192,7 @@ export default function ClientsPage() {
                     <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(c.id)}>
+                    <Button variant="ghost" size="sm" onClick={() => setDeleteId(c.id)}>
                       <Trash2 className="w-4 h-4 text-destructive" />
                     </Button>
                   </div>
@@ -289,6 +291,20 @@ export default function ClientsPage() {
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Сохраняем...' : 'Сохранить'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm */}
+      <Dialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Удалить клиента?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Это действие необратимо.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>Отмена</Button>
+            <Button variant="destructive" onClick={handleDelete}>Удалить</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

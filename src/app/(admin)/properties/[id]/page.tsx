@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import Link from 'next/link'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 export default function PropertyEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -21,6 +22,7 @@ export default function PropertyEditPage() {
 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [form, setForm] = useState<Partial<Property>>({
     status: 'draft',
     photos: [],
@@ -59,7 +61,6 @@ export default function PropertyEditPage() {
   }
 
   async function handleDelete() {
-    if (!confirm('Удалить объект?')) return
     const supabase = createClient()
     await supabase.from('properties').delete().eq('id', id)
     toast.success('Объект удалён')
@@ -197,12 +198,25 @@ export default function PropertyEditPage() {
           {saving ? 'Сохраняем...' : 'Сохранить'}
         </Button>
         {!isNew && (
-          <Button variant="destructive" onClick={handleDelete}>
+          <Button variant="destructive" onClick={() => setConfirmDelete(true)}>
             <Trash2 className="w-4 h-4 mr-1.5" />
             Удалить
           </Button>
         )}
       </div>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Удалить объект?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Это действие необратимо.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>Отмена</Button>
+            <Button variant="destructive" onClick={handleDelete}>Удалить</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
