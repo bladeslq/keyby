@@ -47,13 +47,15 @@ export function AddressInput({ value, onChange, placeholder, className }: Addres
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'Authorization': `Token ${process.env.NEXT_PUBLIC_DADATA_TOKEN}`,
         },
         body: JSON.stringify({
           query,
           count: 6,
           locations: [{ city: 'Казань' }],
-          restrict_value: true,
+          from_bound: { value: 'street' },
+          to_bound: { value: 'house' },
         }),
       })
       const data = await res.json()
