@@ -127,6 +127,9 @@ CREATE POLICY "service_update_properties" ON properties
   FOR UPDATE USING (true);
 
 -- Atomic counter increment for parser
+-- Enable realtime for properties table
+ALTER PUBLICATION supabase_realtime ADD TABLE properties;
+
 CREATE OR REPLACE FUNCTION increment_messages_parsed(p_account_id UUID)
 RETURNS void LANGUAGE sql SECURITY DEFINER AS $$
   UPDATE wa_accounts SET messages_parsed = messages_parsed + 1 WHERE id = p_account_id;
