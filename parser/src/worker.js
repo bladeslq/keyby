@@ -141,7 +141,7 @@ export class WhatsAppWorker {
 
     console.log(`[worker:${this.accountId}] sending to webhook: ${parsed.title}`)
 
-    const webhookRes = await notifyWebApp({ type: 'new_property', ...parsed, propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
+    const webhookRes = await notifyWebApp({ ...parsed, type: 'new_property', propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
     console.log(`[worker:${this.accountId}] webhook done`)
   }
 
