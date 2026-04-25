@@ -83,7 +83,7 @@ export function CatalogFilters() {
       </Button>
 
       {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={reset}>
+        <Button variant="ghost" onClick={reset}>
           <X className="w-3.5 h-3.5 mr-1" />
           Сбросить
         </Button>
