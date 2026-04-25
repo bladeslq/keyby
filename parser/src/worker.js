@@ -97,14 +97,17 @@ export class WhatsAppWorker {
         console.error(`[worker:${this.accountId}] disconnected code=${code} reason=${lastDisconnect?.error?.message || 'unknown'}`)
 
         const isBanned = code === DisconnectReason.loggedOut
-        const status = isBanned ? 'banned' : 'disconnected'
-
-        await notifyWebApp({ type: 'account_status', accountId: this.accountId, status })
         const supabase = createClient()
-        await supabase.from('wa_accounts').update({ status }).eq('id', this.accountId)
-        this.onDisconnected?.(status)
 
-        if (!isBanned && !this._stopped) {
+        if (isBanned) {
+          await notifyWebApp({ type: 'account_status', accountId: this.accountId, status: 'banned' })
+          await supabase.from('wa_accounts').update({ status: 'banned' }).eq('id', this.accountId)
+          this.onDisconnected?.('banned')
+        } else if (this._stopped) {
+          await notifyWebApp({ type: 'account_status', accountId: this.accountId, status: 'disconnected' })
+          await supabase.from('wa_accounts').update({ status: 'disconnected' }).eq('id', this.accountId)
+          this.onDisconnected?.('disconnected')
+        } else {
           console.log(`[worker:${this.accountId}] reconnecting in 5s...`)
           setTimeout(() => this.start(), 5000)
         }

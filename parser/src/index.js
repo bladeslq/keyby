@@ -111,9 +111,11 @@ app.get('/wa/groups/:accountId', async (req, res) => {
 
 async function init() {
   const supabase = createClient()
-  const { data: accounts } = await supabase.from('wa_accounts').select('*').eq('status', 'active')
+  const { data: accounts } = await supabase.from('wa_accounts').select('*').in('status', ['active', 'disconnected'])
   for (const account of accounts || []) {
     const sessionDir = path.join(__dirname, '../sessions', account.id)
+    const fs = await import('fs')
+    if (!fs.existsSync(sessionDir)) continue
     const worker = new WhatsAppWorker(account.id, sessionDir, null, null, (status) => { if (status === 'banned') workers.delete(account.id) })
     workers.set(account.id, worker)
     worker.start()
