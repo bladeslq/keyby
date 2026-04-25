@@ -4,9 +4,12 @@ import pino from 'pino'
 import axios from 'axios'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { SocksProxyAgent } from 'socks-proxy-agent'
 import { parseMessage } from './parser.js'
 import { isDuplicate } from './dedup.js'
 import { createClient } from './db.js'
+
+const proxyAgent = process.env.PROXY_URL ? new SocksProxyAgent(process.env.PROXY_URL) : undefined
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -43,6 +46,7 @@ export class WhatsAppWorker {
       auth: state,
       logger: pino({ level: 'silent' }),
       printQRInTerminal: false,
+      ...(proxyAgent && { fetchAgent: proxyAgent }),
     })
 
     this.sock.ev.on('creds.update', saveCreds)
