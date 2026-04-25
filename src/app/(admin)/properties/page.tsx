@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Pencil, ImageOff } from 'lucide-react'
+import { Pencil, ImageOff, Plus } from 'lucide-react'
 import { DeletePropertyButton } from '@/components/DeletePropertyButton'
 
 const statusVariant: Record<PropertyStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -44,7 +44,7 @@ export default async function PropertiesPage() {
           <h1 className="text-2xl font-bold">Объекты</h1>
           <p className="text-muted-foreground text-sm mt-1">{properties.length} объектов в базе</p>
         </div>
-        <Button asChild><Link href="/properties/new">+ Новый объект</Link></Button>
+        <Button asChild><Link href="/properties/new"><Plus />Новый объект</Link></Button>
       </div>
 
       <div className="border rounded-xl overflow-hidden">

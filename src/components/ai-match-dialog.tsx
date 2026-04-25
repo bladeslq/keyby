@@ -79,9 +79,9 @@ export function AiMatchDialog({ client, onClose }: AiMatchDialogProps) {
         {!results && (
           <Button onClick={handleMatch} disabled={loading} className="w-full">
             {loading ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Ищем подходящие объекты...</>
+              <><Loader2 className="animate-spin" />Ищем подходящие объекты...</>
             ) : (
-              <><Sparkles className="w-4 h-4 mr-2" />Подобрать через ИИ</>
+              <><Sparkles />Подобрать через ИИ</>
             )}
           </Button>
         )}

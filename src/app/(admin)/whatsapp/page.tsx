@@ -244,11 +244,11 @@ export default function WhatsAppPage() {
             </span>
           )}
           <Button variant="outline" size="sm" onClick={() => { load(); checkParser() }}>
-            <RefreshCw className="w-4 h-4 mr-1.5" />
+            <RefreshCw />
             Обновить
           </Button>
           <Button onClick={() => handleAddAccount()}>
-            <Plus className="w-4 h-4 mr-1.5" />
+            <Plus />
             Добавить аккаунт
           </Button>
         </div>
@@ -304,13 +304,13 @@ export default function WhatsAppPage() {
                   <div className="flex items-center justify-end gap-2">
                     {a.status === 'active' && (
                       <Button variant="outline" size="sm" onClick={() => openGroups(a)}>
-                        <MessageSquare className="w-4 h-4 mr-1.5" />
+                        <MessageSquare />
                         Группы
                       </Button>
                     )}
                     {a.status === 'active' ? (
                       <Button variant="ghost" size="sm" onClick={() => handleDisconnect(a.id)}>
-                        <WifiOff className="w-4 h-4 mr-1.5" />
+                        <WifiOff />
                         Отключить
                       </Button>
                     ) : a.status === 'disconnected' ? (
@@ -318,13 +318,13 @@ export default function WhatsAppPage() {
                         <Button variant="ghost" size="sm" onClick={() => handleAddAccount(a.id)}>
                           Переподключить
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteAccount(a.id)}>
-                          <Trash2 className="w-4 h-4" />
+                        <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteAccount(a.id)}>
+                          <Trash2 />
                         </Button>
                       </>
                     ) : a.status === 'connecting' ? (
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteAccount(a.id)}>
-                        <Trash2 className="w-4 h-4" />
+                      <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteAccount(a.id)}>
+                        <Trash2 />
                       </Button>
                     ) : null}
                   </div>

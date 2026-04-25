@@ -139,7 +139,7 @@ export default function ClientsPage() {
           <h1 className="text-2xl font-bold">Клиенты</h1>
           <p className="text-muted-foreground text-sm mt-1">{clients.length} клиентов</p>
         </div>
-        <Button onClick={openNew}><Plus className="w-4 h-4 mr-1.5" />Добавить клиента</Button>
+        <Button onClick={openNew}><Plus />Добавить клиента</Button>
       </div>
 
       <div className="border rounded-xl overflow-hidden">
@@ -186,14 +186,14 @@ export default function ClientsPage() {
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button variant="ghost" size="sm" onClick={() => setMatchClient(c)}>
-                      <Sparkles className="w-4 h-4 mr-1" />
+                      <Sparkles />
                       ИИ подбор
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>
-                      <Pencil className="w-4 h-4" />
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(c)}>
+                      <Pencil />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setDeleteId(c.id)}>
-                      <Trash2 className="w-4 h-4 text-destructive" />
+                    <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteId(c.id)}>
+                      <Trash2 />
                     </Button>
                   </div>
                 </TableCell>

@@ -78,13 +78,13 @@ export function CatalogFilters() {
       />
 
       <Button onClick={applyFilters}>
-        <Search className="w-3.5 h-3.5 mr-1.5" />
+        <Search />
         Найти
       </Button>
 
       {hasFilters && (
         <Button variant="ghost" onClick={reset}>
-          <X className="w-3.5 h-3.5 mr-1" />
+          <X />
           Сбросить
         </Button>
       )}

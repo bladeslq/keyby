@@ -96,7 +96,7 @@ export default function PropertyEditPage() {
     <div className="p-6 space-y-6 max-w-3xl">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/properties"><ArrowLeft className="w-4 h-4 mr-1" />Назад</Link>
+          <Link href="/properties"><ArrowLeft />Назад</Link>
         </Button>
         <h1 className="text-xl font-bold">{isNew ? 'Новый объект' : form.title}</h1>
       </div>
@@ -231,7 +231,7 @@ export default function PropertyEditPage() {
         </Button>
         {!isNew && (
           <Button variant="destructive" onClick={() => setConfirmDelete(true)}>
-            <Trash2 className="w-4 h-4 mr-1.5" />
+            <Trash2 />
             Удалить
           </Button>
         )}
