@@ -49,7 +49,10 @@ export class WhatsAppWorker {
 
   async start() {
     const { state, saveCreds } = await useMultiFileAuthState(this.sessionDir)
-    const { version } = await fetchLatestWaWebVersion()
+    const { version } = await Promise.race([
+      fetchLatestWaWebVersion(),
+      new Promise(resolve => setTimeout(() => resolve({ version: [2, 3000, 1038149389] }), 5000)),
+    ])
 
     this.sock = makeWASocket({
       auth: state,
