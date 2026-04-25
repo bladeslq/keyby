@@ -120,7 +120,7 @@ async function init() {
   const { data: accounts } = await supabase
     .from('wa_accounts')
     .select('*')
-    .in('status', ['active', 'disconnected'])
+    .eq('status', 'active')
 
   for (const account of accounts || []) {
     const sessionDir = path.join(__dirname, '../sessions', account.id)
