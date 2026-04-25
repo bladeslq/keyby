@@ -74,6 +74,8 @@ class WhatsAppWorker {
           ? lastDisconnect.error.output?.statusCode
           : null
 
+        console.error(`[worker:${this.accountId}] disconnected code=${code} reason=${lastDisconnect?.error?.message || 'unknown'}`)
+
         const isBanned = code === DisconnectReason.loggedOut
         const status = isBanned ? 'banned' : 'disconnected'
 
