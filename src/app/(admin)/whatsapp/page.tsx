@@ -98,19 +98,29 @@ export default function WhatsAppPage() {
       )
       wsRef.current = ws
 
+      const timeout = setTimeout(() => {
+        ws.close()
+        toast.error('WhatsApp не ответил — попробуйте ещё раз')
+        setQrDialog(false)
+        setConnecting(false)
+      }, 30000)
+
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data)
         if (msg.type === 'qr') {
+          clearTimeout(timeout)
           setQrCode(msg.data)
           setConnecting(false)
         }
         if (msg.type === 'connected') {
+          clearTimeout(timeout)
           toast.success('WhatsApp аккаунт подключён!')
           setQrDialog(false)
           load()
         }
       }
       ws.onerror = () => {
+        clearTimeout(timeout)
         toast.error('Ошибка подключения к парсеру')
         setQrDialog(false)
       }
