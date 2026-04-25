@@ -50,6 +50,7 @@ export default function WhatsAppPage() {
   const [connecting, setConnecting] = useState(false)
   const [parserOnline, setParserOnline] = useState<boolean | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const pendingAccountId = useRef<string | null>(null)
 
   // Groups dialog
   const [groupsAccount, setGroupsAccount] = useState<WaAccount | null>(null)
@@ -114,7 +115,8 @@ export default function WhatsAppPage() {
       )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`)
-      const { wsToken } = data
+      const { wsToken, accountId: newAccountId } = data
+      if (!existingId) pendingAccountId.current = newAccountId
 
       const ws = new WebSocket(
         `${process.env.NEXT_PUBLIC_PARSER_WS_URL}/wa/qr?token=${wsToken}`
@@ -137,6 +139,7 @@ export default function WhatsAppPage() {
         }
         if (msg.type === 'connected') {
           clearTimeout(timeout)
+          pendingAccountId.current = null
           toast.success('WhatsApp аккаунт подключён!')
           setQrDialog(false)
           load()
@@ -158,6 +161,11 @@ export default function WhatsAppPage() {
     wsRef.current?.close()
     setQrDialog(false)
     setQrCode(null)
+    if (pendingAccountId.current) {
+      fetch(`${process.env.NEXT_PUBLIC_PARSER_URL}/wa/account/${pendingAccountId.current}`, { method: 'DELETE' }).catch(() => {})
+      pendingAccountId.current = null
+      load()
+    }
   }
 
   async function handleDisconnect(id: string) {
