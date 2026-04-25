@@ -9,18 +9,18 @@
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.9",
     "@supabase/supabase-js": "^2.43.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "axios": "^1.7.0",
     "dotenv": "^16.4.0",
     "express": "^4.19.0",
     "groq-sdk": "^1.1.2",
+    "https-proxy-agent": "^7.0.4",
     "pino": "^9.0.0",
     "pino-pretty": "^11.0.0",
     "qrcode": "^1.5.3",
-    "ws": "^8.17.0",
     "socks-proxy-agent": "^8.0.4",
-    "https-proxy-agent": "^7.0.4"
+    "ws": "^8.17.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

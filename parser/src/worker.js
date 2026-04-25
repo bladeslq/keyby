@@ -1,4 +1,4 @@
-import makeWASocket, { useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
+import makeWASocket, { useMultiFileAuthState, DisconnectReason, fetchLatestWaWebVersion } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
 import pino from 'pino'
 import axios from 'axios'
@@ -48,12 +48,14 @@ export class WhatsAppWorker {
 
   async start() {
     const { state, saveCreds } = await useMultiFileAuthState(this.sessionDir)
+    const { version } = await fetchLatestWaWebVersion()
 
     this.sock = makeWASocket({
       auth: state,
       logger: pino({ level: 'silent' }),
       printQRInTerminal: false,
-      ...(proxyAgent && { fetchAgent: proxyAgent }),
+      version,
+      ...(proxyAgent && { agent: proxyAgent, fetchAgent: proxyAgent }),
     })
 
     this.sock.ev.on('creds.update', saveCreds)
