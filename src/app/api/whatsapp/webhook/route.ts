@@ -12,9 +12,24 @@ export async function POST(req: Request) {
   const supabase = createServiceClient()
 
   if (body.type === 'new_property') {
+    let normalizedAddress = body.address || null
+    if (body.address && process.env.DADATA_TOKEN) {
+      try {
+        const dadataRes = await fetch('https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${process.env.DADATA_TOKEN}` },
+          body: JSON.stringify({ query: `Казань ${body.address}`, count: 1, locations: [{ city: 'Казань' }], restrict_value: true }),
+        })
+        const dadataData = await dadataRes.json()
+        if (dadataData.suggestions?.[0]?.value) {
+          normalizedAddress = dadataData.suggestions[0].value
+        }
+      } catch { /* оставляем как есть */ }
+    }
+
     const { error } = await supabase.from('properties').insert({
       title: body.title,
-      address: body.address,
+      address: normalizedAddress,
       district: body.district,
       price: body.price,
       deposit: body.deposit,

@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { AddressInput } from '@/components/ui/address-input'
 
 export default function PropertyEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -120,8 +121,12 @@ export default function PropertyEditPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Адрес *</Label>
-              <Input value={form.address || ''} onChange={(e) => set('address', e.target.value)} />
+              <Label>Адрес</Label>
+              <AddressInput
+                value={form.address || ''}
+                onChange={(v) => set('address', v)}
+                placeholder="Начните вводить адрес..."
+              />
             </div>
           </CardContent>
         </Card>
@@ -153,16 +158,6 @@ export default function PropertyEditPage() {
               <div className="space-y-1.5">
                 <Label>Этажность</Label>
                 <Input type="number" value={form.total_floors || ''} onChange={(e) => set('total_floors', Number(e.target.value))} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Широта</Label>
-                <Input type="number" value={form.lat || ''} onChange={(e) => set('lat', Number(e.target.value))} placeholder="55.878809" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Долгота</Label>
-                <Input type="number" value={form.lng || ''} onChange={(e) => set('lng', Number(e.target.value))} placeholder="49.144934" />
               </div>
             </div>
           </CardContent>
