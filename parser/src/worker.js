@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys')
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys')
 const { Boom } = require('@hapi/boom')
 const pino = require('pino')
 const axios = require('axios')
@@ -36,10 +36,8 @@ class WhatsAppWorker {
 
   async start() {
     const { state, saveCreds } = await useMultiFileAuthState(this.sessionDir)
-    const { version } = await fetchLatestBaileysVersion()
 
     this.sock = makeWASocket({
-      version,
       auth: state,
       logger: pino({ level: 'silent' }),
       printQRInTerminal: false,
