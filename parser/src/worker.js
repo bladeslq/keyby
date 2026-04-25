@@ -25,12 +25,13 @@ const PARSER_SECRET = process.env.PARSER_SECRET
 
 async function notifyWebApp(payload) {
   try {
-    await axios.post(WEBHOOK_URL, payload, {
+    const res = await axios.post(WEBHOOK_URL, payload, {
       headers: { 'x-parser-secret': PARSER_SECRET },
       timeout: 10000,
     })
+    console.log('[worker] webhook response:', res.status, JSON.stringify(res.data).slice(0, 100))
   } catch (err) {
-    console.error('[worker] webhook error:', err.message)
+    console.error('[worker] webhook error:', err.response?.status, err.response?.data || err.message)
   }
 }
 
@@ -127,16 +128,21 @@ export class WhatsAppWorker {
     const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text
     if (!text || !isGroup) return
 
+    console.log(`[worker:${this.accountId}] message from group, text: ${text.slice(0, 80)}`)
+
     const chatName = await this._getChatName(chatId)
     const parsed = await parseMessage(text)
+    console.log(`[worker:${this.accountId}] parsed:`, parsed ? JSON.stringify(parsed).slice(0, 120) : 'null (not a property)')
     if (!parsed) return
 
     const dup = await isDuplicate(parsed)
-    if (dup) { console.log(`[worker:${this.accountId}] duplicate skipped`); return }
+    console.log(`[worker:${this.accountId}] duplicate:`, dup)
+    if (dup) return
 
-    console.log(`[worker:${this.accountId}] new property from ${chatName}: ${parsed.title}`)
+    console.log(`[worker:${this.accountId}] sending to webhook: ${parsed.title}`)
 
-    await notifyWebApp({ type: 'new_property', ...parsed, propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
+    const webhookRes = await notifyWebApp({ type: 'new_property', ...parsed, propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
+    console.log(`[worker:${this.accountId}] webhook done`)
   }
 
   async _handlePhotoReply(msg, senderPhone) {
