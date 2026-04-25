@@ -243,7 +243,7 @@ export default function WhatsAppPage() {
               <XCircle className="w-3.5 h-3.5" /> Парсер недоступен
             </span>
           )}
-          <Button variant="outline" size="sm" onClick={() => { load(); checkParser() }}>
+          <Button variant="outline" onClick={() => { load(); checkParser() }}>
             <RefreshCw />
             Обновить
           </Button>
