@@ -8,6 +8,10 @@ import crypto from 'crypto'
 import { WhatsAppWorker } from './worker.js'
 import { createClient } from './db.js'
 
+// Force line-buffered stdout/stderr for real-time Railway logs
+if (process.stdout._handle?.setBlocking) process.stdout._handle.setBlocking(true)
+if (process.stderr._handle?.setBlocking) process.stderr._handle.setBlocking(true)
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
@@ -26,22 +30,32 @@ const server = createServer(app)
 const wss = new WebSocketServer({ server })
 
 const workers = new Map()
+// qrSessions: token -> { ws, lastQr, lastConnected, createdAt }
 const qrSessions = new Map()
 
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, 'http://localhost')
   const token = url.searchParams.get('token')
-  if (token && qrSessions.has(token)) {
-    qrSessions.set(token, ws)
-    ws.on('close', () => qrSessions.delete(token))
-  } else {
+  const session = qrSessions.get(token)
+  if (!session) { ws.close(); return }
+
+  session.ws = ws
+  console.log(`[ws] frontend connected for token=${token.slice(0, 8)}, buffered: qr=${!!session.lastQr} connected=${!!session.lastConnected}`)
+
+  // Send any buffered messages immediately
+  if (session.lastQr) ws.send(JSON.stringify({ type: 'qr', data: session.lastQr }))
+  if (session.lastConnected) {
+    ws.send(JSON.stringify({ type: 'connected', phone: session.lastConnected }))
     ws.close()
   }
+
+  ws.on('close', () => qrSessions.delete(token))
 })
 
 app.get('/health', (req, res) => res.json({ ok: true }))
 
 app.post('/wa/connect', async (req, res) => {
+  const t0 = Date.now()
   try {
     const supabase = createClient()
     let accountId = req.body?.accountId
@@ -61,24 +75,33 @@ app.post('/wa/connect', async (req, res) => {
     const sessionDir = path.join(__dirname, '../sessions', accountId)
     const wsToken = crypto.randomUUID()
 
-    qrSessions.set(wsToken, null)
+    const session = { ws: null, lastQr: null, lastConnected: null, createdAt: Date.now() }
+    qrSessions.set(wsToken, session)
 
     const worker = new WhatsAppWorker(
       accountId, sessionDir,
       (qrDataUrl) => {
-        const ws = qrSessions.get(wsToken)
-        if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'qr', data: qrDataUrl }))
+        const dt = Date.now() - session.createdAt
+        console.log(`[qr] generated for token=${wsToken.slice(0, 8)} after ${dt}ms, ws=${session.ws?.readyState === 1 ? 'ready' : 'not-ready'}`)
+        session.lastQr = qrDataUrl
+        if (session.ws?.readyState === 1) {
+          session.ws.send(JSON.stringify({ type: 'qr', data: qrDataUrl }))
+        }
       },
       (phone) => {
-        const ws = qrSessions.get(wsToken)
-        if (ws?.readyState === 1) { ws.send(JSON.stringify({ type: 'connected', phone })); ws.close() }
+        session.lastConnected = phone
+        if (session.ws?.readyState === 1) {
+          session.ws.send(JSON.stringify({ type: 'connected', phone }))
+          session.ws.close()
+        }
         qrSessions.delete(wsToken)
       },
       (status) => { if (status === 'banned') workers.delete(accountId) }
     )
 
     workers.set(accountId, worker)
-    worker.start()
+    console.log(`[/wa/connect] account=${accountId} setup took ${Date.now() - t0}ms, starting worker`)
+    worker.start().catch(err => console.error(`[/wa/connect] worker.start failed:`, err.message))
     res.json({ accountId, wsToken })
   } catch (err) {
     console.error('[/wa/connect] error:', err)
