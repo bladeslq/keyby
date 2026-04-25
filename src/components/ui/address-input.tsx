@@ -1,18 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 interface Suggestion {
   value: string
-  data: {
-    city?: string
-    street_with_type?: string
-    house?: string
-    block?: string
-    settlement_with_type?: string
-  }
 }
 
 interface AddressInputProps {
@@ -25,13 +18,13 @@ interface AddressInputProps {
 export function AddressInput({ value, onChange, placeholder, className }: AddressInputProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [rect, setRect] = useState<DOMRect | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const wrapperRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
         setOpen(false)
       }
     }
@@ -41,7 +34,6 @@ export function AddressInput({ value, onChange, placeholder, className }: Addres
 
   async function fetchSuggestions(query: string) {
     if (query.length < 3) { setSuggestions([]); setOpen(false); return }
-    setLoading(true)
     try {
       const res = await fetch('https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address', {
         method: 'POST',
@@ -50,19 +42,20 @@ export function AddressInput({ value, onChange, placeholder, className }: Addres
           'Accept': 'application/json',
           'Authorization': `Token ${process.env.NEXT_PUBLIC_DADATA_TOKEN}`,
         },
-        body: JSON.stringify({
-          query,
-          count: 6,
-          locations: [{ city: 'Казань' }],
-        }),
+        body: JSON.stringify({ query, count: 6, locations: [{ city: 'Казань' }] }),
       })
       const data = await res.json()
-      setSuggestions(data.suggestions || [])
-      setOpen((data.suggestions || []).length > 0)
+      const list = data.suggestions || []
+      setSuggestions(list)
+      if (list.length > 0 && inputRef.current) {
+        setRect(inputRef.current.getBoundingClientRect())
+        setOpen(true)
+      } else {
+        setOpen(false)
+      }
     } catch {
       setSuggestions([])
-    } finally {
-      setLoading(false)
+      setOpen(false)
     }
   }
 
@@ -80,16 +73,25 @@ export function AddressInput({ value, onChange, placeholder, className }: Addres
   }
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <>
       <Input
+        ref={inputRef}
         value={value}
         onChange={handleChange}
-        onFocus={() => suggestions.length > 0 && setOpen(true)}
         placeholder={placeholder}
         className={className}
       />
-      {open && suggestions.length > 0 && (
-        <div className="absolute z-[9999] w-full mt-1 bg-background border rounded-lg shadow-lg overflow-hidden">
+      {open && suggestions.length > 0 && rect && (
+        <div
+          style={{
+            position: 'fixed',
+            top: rect.bottom + 4,
+            left: rect.left,
+            width: rect.width,
+            zIndex: 9999,
+          }}
+          className="bg-background border rounded-lg shadow-xl overflow-hidden"
+        >
           {suggestions.map((s, i) => (
             <button
               key={i}
@@ -105,6 +107,6 @@ export function AddressInput({ value, onChange, placeholder, className }: Addres
           ))}
         </div>
       )}
-    </div>
+    </>
   )
 }
