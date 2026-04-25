@@ -54,8 +54,6 @@ export function AddressInput({ value, onChange, placeholder, className }: Addres
           query,
           count: 6,
           locations: [{ city: 'Казань' }],
-          from_bound: { value: 'street' },
-          to_bound: { value: 'house' },
         }),
       })
       const data = await res.json()
