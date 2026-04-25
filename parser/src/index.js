@@ -111,10 +111,13 @@ app.post('/wa/connect', async (req, res) => {
   }
 })
 
-app.post('/wa/disconnect/:accountId', (req, res) => {
-  const worker = workers.get(req.params.accountId)
+app.post('/wa/disconnect/:accountId', async (req, res) => {
+  const { accountId } = req.params
+  const worker = workers.get(accountId)
   worker?.stop()
-  workers.delete(req.params.accountId)
+  workers.delete(accountId)
+  const supabase = createClient()
+  await supabase.from('wa_accounts').update({ status: 'disconnected' }).eq('id', accountId)
   res.json({ success: true })
 })
 
