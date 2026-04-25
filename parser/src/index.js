@@ -43,49 +43,56 @@ app.get('/health', (req, res) => res.json({ ok: true }))
 
 // ─── REST: connect a new WA account ──────────────────────────────────────────
 app.post('/wa/connect', async (req, res) => {
-  const supabase = createClient()
+  try {
+    const supabase = createClient()
 
-  const { data: account } = await supabase
-    .from('wa_accounts')
-    .insert({ status: 'connecting' })
-    .select()
-    .single()
+    const { data: account, error } = await supabase
+      .from('wa_accounts')
+      .insert({ status: 'connecting' })
+      .select()
+      .single()
 
-  const accountId = account.id
-  const sessionDir = path.join(__dirname, '../sessions', accountId)
-  const wsToken = crypto.randomUUID()
-
-  qrSessions.set(wsToken, null) // placeholder until WS connects
-
-  const worker = new WhatsAppWorker(
-    accountId,
-    sessionDir,
-    // onQr
-    (qrDataUrl) => {
-      const ws = qrSessions.get(wsToken)
-      if (ws?.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'qr', data: qrDataUrl }))
-      }
-    },
-    // onConnected
-    (phone) => {
-      const ws = qrSessions.get(wsToken)
-      if (ws?.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'connected', phone }))
-        ws.close()
-      }
-      qrSessions.delete(wsToken)
-    },
-    // onDisconnected
-    (status) => {
-      if (status === 'banned') workers.delete(accountId)
+    if (error || !account) {
+      console.error('[/wa/connect] supabase error:', error)
+      return res.status(500).json({ error: error?.message || 'db error' })
     }
-  )
 
-  workers.set(accountId, worker)
-  worker.start()
+    const accountId = account.id
+    const sessionDir = path.join(__dirname, '../sessions', accountId)
+    const wsToken = crypto.randomUUID()
 
-  res.json({ accountId, wsToken })
+    qrSessions.set(wsToken, null)
+
+    const worker = new WhatsAppWorker(
+      accountId,
+      sessionDir,
+      (qrDataUrl) => {
+        const ws = qrSessions.get(wsToken)
+        if (ws?.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'qr', data: qrDataUrl }))
+        }
+      },
+      (phone) => {
+        const ws = qrSessions.get(wsToken)
+        if (ws?.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'connected', phone }))
+          ws.close()
+        }
+        qrSessions.delete(wsToken)
+      },
+      (status) => {
+        if (status === 'banned') workers.delete(accountId)
+      }
+    )
+
+    workers.set(accountId, worker)
+    worker.start()
+
+    res.json({ accountId, wsToken })
+  } catch (err) {
+    console.error('[/wa/connect] error:', err)
+    res.status(500).json({ error: err.message })
+  }
 })
 
 // ─── REST: disconnect account ─────────────────────────────────────────────────

@@ -88,7 +88,9 @@ export default function WhatsAppPage() {
         `${process.env.NEXT_PUBLIC_PARSER_URL}/wa/connect`,
         { method: 'POST' }
       )
-      const { wsToken } = await res.json()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`)
+      const { wsToken } = data
 
       // Connect via WebSocket to stream QR
       const ws = new WebSocket(
@@ -112,8 +114,8 @@ export default function WhatsAppPage() {
         toast.error('Ошибка подключения к парсеру')
         setQrDialog(false)
       }
-    } catch {
-      toast.error('Парсер недоступен')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Парсер недоступен')
       setQrDialog(false)
       setConnecting(false)
     }
