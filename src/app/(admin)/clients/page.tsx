@@ -242,18 +242,16 @@ export default function ClientsPage() {
               <Label>Количество комнат</Label>
               <div className="flex flex-wrap gap-2">
                 {[1, 2, 3, 4].map((r) => (
-                  <button
+                  <Button
                     key={r}
                     type="button"
+                    variant={form.rooms.includes(r) ? 'default' : 'outline'}
+                    size="sm"
+                    className="rounded-full"
                     onClick={() => toggleRoom(r)}
-                    className={`px-3 py-1 rounded-full text-sm border transition-colors ${
-                      form.rooms.includes(r)
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'border-border hover:bg-muted'
-                    }`}
                   >
                     {r}-к
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -262,18 +260,16 @@ export default function ClientsPage() {
               <Label>Районы</Label>
               <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
                 {DISTRICTS.map((d) => (
-                  <button
+                  <Button
                     key={d}
                     type="button"
+                    variant={form.districts.includes(d) ? 'default' : 'outline'}
+                    size="sm"
+                    className="rounded-full text-xs h-7 px-2.5"
                     onClick={() => toggleDistrict(d)}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                      form.districts.includes(d)
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'border-border hover:bg-muted'
-                    }`}
                   >
                     {d}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

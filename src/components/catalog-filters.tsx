@@ -7,8 +7,6 @@ import { Input } from '@/components/ui/input'
 import { DISTRICTS, PROPERTY_TYPE_LABELS } from '@/lib/types'
 import { X } from 'lucide-react'
 
-const ALL = '__all__'
-
 export function CatalogFilters() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -26,34 +24,28 @@ export function CatalogFilters() {
     router.push(`/catalog?${params.toString()}`)
   }
 
-  function handleSelect(key: string, value: string | null) {
-    update(key, !value || value === ALL ? '' : value)
-  }
-
   function handlePriceBlur(key: string, value: string) {
     update(key, value)
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2 mb-8">
-      <Select value={district || ALL} onValueChange={(v) => handleSelect('district', v)}>
+      <Select value={district || undefined} onValueChange={(v) => update('district', v)}>
         <SelectTrigger className="w-48">
           <SelectValue placeholder="Все районы" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>Все районы</SelectItem>
           {DISTRICTS.map((d) => (
             <SelectItem key={d} value={d}>{d}</SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      <Select value={type || ALL} onValueChange={(v) => handleSelect('type', v)}>
+      <Select value={type || undefined} onValueChange={(v) => update('type', v)}>
         <SelectTrigger className="w-48">
           <SelectValue placeholder="Все типы" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>Все типы</SelectItem>
           {Object.entries(PROPERTY_TYPE_LABELS).map(([v, l]) => (
             <SelectItem key={v} value={v}>{l}</SelectItem>
           ))}
