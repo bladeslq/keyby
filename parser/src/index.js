@@ -125,4 +125,7 @@ const PORT = process.env.PORT || 4000
 server.listen(PORT, async () => {
   console.log(`Parser service running on :${PORT}`)
   await init()
+  setInterval(() => {
+    axios.get(`http://localhost:${PORT}/health`).catch(() => {})
+  }, 4 * 60 * 1000)
 })
