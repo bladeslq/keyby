@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Pencil, ImageOff } from 'lucide-react'
+import { DeletePropertyButton } from '@/components/DeletePropertyButton'
 
 const statusVariant: Record<PropertyStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   published: 'default',
@@ -98,12 +99,15 @@ export default async function PropertiesPage() {
                   })}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/properties/${p.id}`}>
-                      <Pencil className="w-4 h-4 mr-1.5" />
-                      Открыть
-                    </Link>
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={`/properties/${p.id}`}>
+                        <Pencil className="w-4 h-4 mr-1.5" />
+                        Открыть
+                      </Link>
+                    </Button>
+                    <DeletePropertyButton id={p.id} />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { FileUpload } from '@/components/ui/file-upload'
 import { toast } from 'sonner'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import Link from 'next/link'
@@ -23,6 +24,7 @@ export default function PropertyEditPage() {
 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [form, setForm] = useState<Partial<Property>>({
     status: 'draft',
@@ -59,6 +61,26 @@ export default function PropertyEditPage() {
       toast.success('Сохранено')
       setSaving(false)
     }
+  }
+
+  async function handlePhotoUpload(files: File[]): Promise<string[]> {
+    setUploading(true)
+    const supabase = createClient()
+    const uploaded: string[] = []
+    const folder = isNew ? 'temp' : id
+
+    for (const file of files) {
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabase.storage.from('property-photos').upload(path, file)
+      if (!error) {
+        const { data } = supabase.storage.from('property-photos').getPublicUrl(path)
+        uploaded.push(data.publicUrl)
+      }
+    }
+
+    setUploading(false)
+    return uploaded
   }
 
   async function handleDelete() {
@@ -171,6 +193,21 @@ export default function PropertyEditPage() {
               value={form.description || ''}
               onChange={(e) => set('description', e.target.value)}
               placeholder="Дополнительная информация об объекте..."
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Фотографии</CardTitle>
+            <p className="text-xs text-muted-foreground">Можно перетаскивать файлы прямо в область загрузки или выбирать их вручную.</p>
+          </CardHeader>
+          <CardContent>
+            <FileUpload
+              value={form.photos ?? []}
+              onChange={(urls) => set('photos', urls)}
+              onUpload={handlePhotoUpload}
+              uploading={uploading}
             />
           </CardContent>
         </Card>
