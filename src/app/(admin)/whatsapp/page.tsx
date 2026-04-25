@@ -239,7 +239,7 @@ export default function WhatsAppPage() {
             <RefreshCw className="w-4 h-4 mr-1.5" />
             Обновить
           </Button>
-          <Button onClick={handleAddAccount}>
+          <Button onClick={() => handleAddAccount()}>
             <Plus className="w-4 h-4 mr-1.5" />
             Добавить аккаунт
           </Button>
