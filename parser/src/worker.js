@@ -112,10 +112,6 @@ export class WhatsAppWorker {
     const senderPhone = msg.key.participant?.split('@')[0] || chatId?.split('@')[0]
 
     const supabase = createClient()
-    if (isGroup) {
-      const { data: chat } = await supabase.from('wa_chats').select('enabled').eq('account_id', this.accountId).eq('chat_jid', chatId).single()
-      if (!chat?.enabled) return
-    }
 
     const hasMedia = msg.message?.imageMessage || msg.message?.documentMessage
     if (!isGroup && hasMedia && this.pendingPhotoRequests.has(senderPhone)) {
@@ -136,9 +132,6 @@ export class WhatsAppWorker {
     console.log(`[worker:${this.accountId}] new property from ${chatName}: ${parsed.title}`)
 
     await notifyWebApp({ type: 'new_property', ...parsed, propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
-    await supabase.rpc('increment_chat_messages', { p_account_id: this.accountId, p_chat_jid: chatId })
-
-    if (senderPhone) await this._requestPhotos(senderPhone, parsed.title)
   }
 
   async _handlePhotoReply(msg, senderPhone) {
