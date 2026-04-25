@@ -2,6 +2,7 @@
   "name": "keyby-parser",
   "version": "1.0.0",
   "description": "WhatsApp parser for Keyby real estate platform",
+  "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

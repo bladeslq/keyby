@@ -1,8 +1,8 @@
-const { createClient: supabaseClient } = require('@supabase/supabase-js')
+import { createClient as supabaseClient } from '@supabase/supabase-js'
 
 let client = null
 
-function createClient() {
+export function createClient() {
   if (!client) {
     client = supabaseClient(
       process.env.SUPABASE_URL,
@@ -11,5 +11,3 @@ function createClient() {
   }
   return client
 }
-
-module.exports = { createClient }

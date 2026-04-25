@@ -1,11 +1,14 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys')
-const { Boom } = require('@hapi/boom')
-const pino = require('pino')
-const axios = require('axios')
-const path = require('path')
-const { parseMessage } = require('./parser')
-const { isDuplicate } = require('./dedup')
-const { createClient } = require('./db')
+import makeWASocket, { useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
+import { Boom } from '@hapi/boom'
+import pino from 'pino'
+import axios from 'axios'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { parseMessage } from './parser.js'
+import { isDuplicate } from './dedup.js'
+import { createClient } from './db.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const WEBHOOK_URL = process.env.WEB_APP_URL + '/api/whatsapp/webhook'
 const PARSER_SECRET = process.env.PARSER_SECRET
@@ -21,7 +24,7 @@ async function notifyWebApp(payload) {
   }
 }
 
-class WhatsAppWorker {
+export class WhatsAppWorker {
   constructor(accountId, sessionDir, onQr, onConnected, onDisconnected) {
     this.accountId = accountId
     this.sessionDir = sessionDir
@@ -30,7 +33,6 @@ class WhatsAppWorker {
     this.onDisconnected = onDisconnected
     this.sock = null
     this.phone = null
-    // Track sender->property mapping for photo replies
     this.pendingPhotoRequests = new Map()
   }
 
@@ -49,7 +51,7 @@ class WhatsAppWorker {
       const { connection, lastDisconnect, qr } = update
 
       if (qr) {
-        const QRCode = require('qrcode')
+        const QRCode = (await import('qrcode')).default
         const qrDataUrl = await QRCode.toDataURL(qr)
         this.onQr?.(qrDataUrl)
       }
@@ -57,36 +59,24 @@ class WhatsAppWorker {
       if (connection === 'open') {
         this.phone = this.sock.user?.id?.split(':')[0] || null
         console.log(`[worker:${this.accountId}] connected as ${this.phone}`)
-
         await notifyWebApp({ type: 'account_status', accountId: this.accountId, status: 'active' })
-
         const supabase = createClient()
-        await supabase
-          .from('wa_accounts')
-          .update({ status: 'active', phone: this.phone, last_seen: new Date().toISOString() })
-          .eq('id', this.accountId)
-
+        await supabase.from('wa_accounts').update({ status: 'active', phone: this.phone, last_seen: new Date().toISOString() }).eq('id', this.accountId)
         this.onConnected?.(this.phone)
       }
 
       if (connection === 'close') {
-        const code = (lastDisconnect?.error instanceof Boom)
-          ? lastDisconnect.error.output?.statusCode
-          : null
-
+        const code = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output?.statusCode : null
         console.error(`[worker:${this.accountId}] disconnected code=${code} reason=${lastDisconnect?.error?.message || 'unknown'}`)
 
         const isBanned = code === DisconnectReason.loggedOut
         const status = isBanned ? 'banned' : 'disconnected'
 
         await notifyWebApp({ type: 'account_status', accountId: this.accountId, status })
-
         const supabase = createClient()
         await supabase.from('wa_accounts').update({ status }).eq('id', this.accountId)
-
         this.onDisconnected?.(status)
 
-        // Reconnect unless banned or explicitly stopped
         if (!isBanned && !this._stopped) {
           console.log(`[worker:${this.accountId}] reconnecting in 5s...`)
           setTimeout(() => this.start(), 5000)
@@ -96,7 +86,6 @@ class WhatsAppWorker {
 
     this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
       if (type !== 'notify') return
-
       for (const msg of messages) {
         if (msg.key.fromMe) continue
         await this._handleMessage(msg)
@@ -109,87 +98,45 @@ class WhatsAppWorker {
     const isGroup = chatId?.endsWith('@g.us')
     const senderPhone = msg.key.participant?.split('@')[0] || chatId?.split('@')[0]
 
-    // Check if chat is enabled for parsing
     const supabase = createClient()
     if (isGroup) {
-      const { data: chat } = await supabase
-        .from('wa_chats')
-        .select('enabled')
-        .eq('account_id', this.accountId)
-        .eq('chat_jid', chatId)
-        .single()
-
+      const { data: chat } = await supabase.from('wa_chats').select('enabled').eq('account_id', this.accountId).eq('chat_jid', chatId).single()
       if (!chat?.enabled) return
     }
 
-    // Handle photo replies from pending requests
     const hasMedia = msg.message?.imageMessage || msg.message?.documentMessage
     if (!isGroup && hasMedia && this.pendingPhotoRequests.has(senderPhone)) {
       await this._handlePhotoReply(msg, senderPhone)
       return
     }
 
-    // Handle text in group chats
     const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text
     if (!text || !isGroup) return
 
     const chatName = await this._getChatName(chatId)
-
     const parsed = await parseMessage(text)
     if (!parsed) return
 
-    // Deduplication check
     const dup = await isDuplicate(parsed)
-    if (dup) {
-      console.log(`[worker:${this.accountId}] duplicate skipped`)
-      return
-    }
+    if (dup) { console.log(`[worker:${this.accountId}] duplicate skipped`); return }
 
     console.log(`[worker:${this.accountId}] new property from ${chatName}: ${parsed.title}`)
 
-    // Save to DB via webhook
-    await notifyWebApp({
-      type: 'new_property',
-      ...parsed,
-      propertyType: parsed.type,
-      chatId,
-      chatName,
-      account: this.phone,
-      senderPhone,
-      rawMessage: parsed.raw,
-    })
-
-    // Update chat stats
+    await notifyWebApp({ type: 'new_property', ...parsed, propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
     await supabase.rpc('increment_chat_messages', { p_account_id: this.accountId, p_chat_jid: chatId })
 
-    // Update account stats
-    await supabase
-      .from('wa_accounts')
-      .update({ messages_parsed: supabase.rpc('get_parsed_count', {}), last_seen: new Date().toISOString() })
-      .eq('id', this.accountId)
-
-    // Request photos from sender (private message)
-    if (senderPhone) {
-      await this._requestPhotos(senderPhone, parsed.title)
-    }
+    if (senderPhone) await this._requestPhotos(senderPhone, parsed.title)
   }
 
   async _handlePhotoReply(msg, senderPhone) {
-    // In a real implementation, download the media from Baileys
-    // and upload to Supabase Storage, then call the webhook
     console.log(`[worker:${this.accountId}] received photo from ${senderPhone}`)
-    // TODO: download + upload media, then:
-    // await notifyWebApp({ type: 'photos', senderPhone, photos: [publicUrl] })
   }
 
   async _requestPhotos(senderPhone, propertyTitle) {
     try {
       const jid = senderPhone + '@s.whatsapp.net'
-      await this.sock.sendMessage(jid, {
-        text: `Здравствуйте! Вы недавно разместили объект "${propertyTitle}" в чате. Мы агрегируем объявления для удобного поиска — не могли бы вы прислать фотографии? Это займёт минуту и поможет вашему объекту найти арендатора быстрее 🙏`,
-      })
+      await this.sock.sendMessage(jid, { text: `Здравствуйте! Вы недавно разместили объект "${propertyTitle}" в чате. Мы агрегируем объявления для удобного поиска — не могли бы вы прислать фотографии? Это займёт минуту и поможет вашему объекту найти арендатора быстрее 🙏` })
       this.pendingPhotoRequests.set(senderPhone, { title: propertyTitle, ts: Date.now() })
-      console.log(`[worker:${this.accountId}] photo request sent to ${senderPhone}`)
     } catch (err) {
       console.error(`[worker:${this.accountId}] failed to send photo request:`, err.message)
     }
@@ -218,5 +165,3 @@ class WhatsAppWorker {
     this.sock?.end()
   }
 }
-
-module.exports = { WhatsAppWorker }

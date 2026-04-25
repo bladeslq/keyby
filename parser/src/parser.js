@@ -1,8 +1,8 @@
-const Groq = require('groq-sdk')
+import Groq from 'groq-sdk'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
-async function parseMessage(text) {
+export async function parseMessage(text) {
   const response = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     max_tokens: 1024,
@@ -53,5 +53,3 @@ ${text}`,
     return null
   }
 }
-
-module.exports = { parseMessage }

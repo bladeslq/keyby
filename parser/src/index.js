@@ -1,15 +1,14 @@
-if (typeof globalThis.crypto === 'undefined') {
-  globalThis.crypto = require('crypto').webcrypto
-}
+import 'dotenv/config'
+import express from 'express'
+import { createServer } from 'http'
+import { WebSocketServer } from 'ws'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import crypto from 'crypto'
+import { WhatsAppWorker } from './worker.js'
+import { createClient } from './db.js'
 
-require('dotenv').config()
-const express = require('express')
-const http = require('http')
-const { WebSocketServer } = require('ws')
-const path = require('path')
-const crypto = require('crypto')
-const { WhatsAppWorker } = require('./worker')
-const { createClient } = require('./db')
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 app.use((req, res, next) => {
@@ -23,16 +22,12 @@ app.use((req, res, next) => {
 })
 app.use(express.json())
 
-const server = http.createServer(app)
+const server = createServer(app)
 const wss = new WebSocketServer({ server })
 
-// accountId -> WhatsAppWorker
 const workers = new Map()
-
-// wsToken -> WebSocket (for QR streaming)
 const qrSessions = new Map()
 
-// ─── WebSocket: stream QR codes ──────────────────────────────────────────────
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, 'http://localhost')
   const token = url.searchParams.get('token')
@@ -44,19 +39,12 @@ wss.on('connection', (ws, req) => {
   }
 })
 
-// ─── Health check ────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ ok: true }))
 
-// ─── REST: connect a new WA account ──────────────────────────────────────────
 app.post('/wa/connect', async (req, res) => {
   try {
     const supabase = createClient()
-
-    const { data: account, error } = await supabase
-      .from('wa_accounts')
-      .insert({ status: 'connecting' })
-      .select()
-      .single()
+    const { data: account, error } = await supabase.from('wa_accounts').insert({ status: 'connecting' }).select().single()
 
     if (error || !account) {
       console.error('[/wa/connect] supabase error:', error)
@@ -70,30 +58,21 @@ app.post('/wa/connect', async (req, res) => {
     qrSessions.set(wsToken, null)
 
     const worker = new WhatsAppWorker(
-      accountId,
-      sessionDir,
+      accountId, sessionDir,
       (qrDataUrl) => {
         const ws = qrSessions.get(wsToken)
-        if (ws?.readyState === 1) {
-          ws.send(JSON.stringify({ type: 'qr', data: qrDataUrl }))
-        }
+        if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'qr', data: qrDataUrl }))
       },
       (phone) => {
         const ws = qrSessions.get(wsToken)
-        if (ws?.readyState === 1) {
-          ws.send(JSON.stringify({ type: 'connected', phone }))
-          ws.close()
-        }
+        if (ws?.readyState === 1) { ws.send(JSON.stringify({ type: 'connected', phone })); ws.close() }
         qrSessions.delete(wsToken)
       },
-      (status) => {
-        if (status === 'banned') workers.delete(accountId)
-      }
+      (status) => { if (status === 'banned') workers.delete(accountId) }
     )
 
     workers.set(accountId, worker)
     worker.start()
-
     res.json({ accountId, wsToken })
   } catch (err) {
     console.error('[/wa/connect] error:', err)
@@ -101,7 +80,6 @@ app.post('/wa/connect', async (req, res) => {
   }
 })
 
-// ─── REST: disconnect account ─────────────────────────────────────────────────
 app.post('/wa/disconnect/:accountId', (req, res) => {
   const worker = workers.get(req.params.accountId)
   if (!worker) return res.status(404).json({ error: 'not found' })
@@ -110,7 +88,6 @@ app.post('/wa/disconnect/:accountId', (req, res) => {
   res.json({ success: true })
 })
 
-// ─── REST: list groups for an account ────────────────────────────────────────
 app.get('/wa/groups/:accountId', async (req, res) => {
   const worker = workers.get(req.params.accountId)
   if (!worker) return res.status(404).json({ error: 'not found' })
@@ -118,22 +95,12 @@ app.get('/wa/groups/:accountId', async (req, res) => {
   res.json(groups)
 })
 
-// ─── Startup: reconnect all active accounts ───────────────────────────────────
 async function init() {
   const supabase = createClient()
-  const { data: accounts } = await supabase
-    .from('wa_accounts')
-    .select('*')
-    .eq('status', 'active')
-
+  const { data: accounts } = await supabase.from('wa_accounts').select('*').eq('status', 'active')
   for (const account of accounts || []) {
     const sessionDir = path.join(__dirname, '../sessions', account.id)
-    const worker = new WhatsAppWorker(
-      account.id,
-      sessionDir,
-      null, null,
-      (status) => { if (status === 'banned') workers.delete(account.id) }
-    )
+    const worker = new WhatsAppWorker(account.id, sessionDir, null, null, (status) => { if (status === 'banned') workers.delete(account.id) })
     workers.set(account.id, worker)
     worker.start()
     console.log(`[init] starting worker for ${account.phone || account.id}`)

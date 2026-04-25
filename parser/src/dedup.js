@@ -1,7 +1,6 @@
-const { createClient } = require('./db')
+import { createClient } from './db.js'
 
-// Returns true if a similar property already exists (added in last 24h)
-async function isDuplicate(property) {
+export async function isDuplicate(property) {
   const supabase = createClient()
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
@@ -17,5 +16,3 @@ async function isDuplicate(property) {
   const { data } = await query.limit(1)
   return (data?.length ?? 0) > 0
 }
-
-module.exports = { isDuplicate }
