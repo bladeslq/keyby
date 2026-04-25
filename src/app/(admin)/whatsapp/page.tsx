@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
-import { Plus, RefreshCw, WifiOff, Loader2, CheckCircle2, XCircle, MessageSquare } from 'lucide-react'
+import { Plus, RefreshCw, WifiOff, Loader2, CheckCircle2, XCircle, MessageSquare, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const statusColor: Record<WaAccountStatus, string> = {
@@ -88,7 +88,17 @@ export default function WhatsAppPage() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  async function handleAddAccount() {
+  async function handleDeleteAccount(id: string) {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_PARSER_URL}/wa/account/${id}`, { method: 'DELETE' })
+      toast.success('Аккаунт удалён')
+      load()
+    } catch {
+      toast.error('Ошибка')
+    }
+  }
+
+  async function handleAddAccount(existingId?: string) {
     setQrDialog(true)
     setQrCode(null)
     setConnecting(true)
@@ -96,7 +106,11 @@ export default function WhatsAppPage() {
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_PARSER_URL}/wa/connect`,
-        { method: 'POST' }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: existingId ? JSON.stringify({ accountId: existingId }) : undefined,
+        }
       )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`)
@@ -292,8 +306,17 @@ export default function WhatsAppPage() {
                         Отключить
                       </Button>
                     ) : a.status === 'disconnected' ? (
-                      <Button variant="ghost" size="sm" onClick={handleAddAccount}>
-                        Переподключить
+                      <>
+                        <Button variant="ghost" size="sm" onClick={() => handleAddAccount(a.id)}>
+                          Переподключить
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteAccount(a.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </>
+                    ) : a.status === 'connecting' ? (
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteAccount(a.id)}>
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     ) : null}
                   </div>

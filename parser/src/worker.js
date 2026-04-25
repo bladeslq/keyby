@@ -45,6 +45,7 @@ export class WhatsAppWorker {
     this.sock = null
     this.phone = null
     this.pendingPhotoRequests = new Map()
+    this._qrAttempts = 0
   }
 
   async start() {
@@ -68,6 +69,15 @@ export class WhatsAppWorker {
       const { connection, lastDisconnect, qr } = update
 
       if (qr) {
+        this._qrAttempts++
+        if (this._qrAttempts > 3) {
+          console.log(`[worker:${this.accountId}] QR not scanned after 3 attempts, stopping`)
+          this._stopped = true
+          this.sock?.end()
+          const supabase = createClient()
+          await supabase.from('wa_accounts').update({ status: 'disconnected' }).eq('id', this.accountId)
+          return
+        }
         const QRCode = (await import('qrcode')).default
         const qrDataUrl = await QRCode.toDataURL(qr)
         this.onQr?.(qrDataUrl)

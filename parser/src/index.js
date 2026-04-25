@@ -44,14 +44,20 @@ app.get('/health', (req, res) => res.json({ ok: true }))
 app.post('/wa/connect', async (req, res) => {
   try {
     const supabase = createClient()
-    const { data: account, error } = await supabase.from('wa_accounts').insert({ status: 'connecting' }).select().single()
+    let accountId = req.body?.accountId
 
-    if (error || !account) {
-      console.error('[/wa/connect] supabase error:', error)
-      return res.status(500).json({ error: error?.message || 'db error' })
+    if (accountId) {
+      await supabase.from('wa_accounts').update({ status: 'connecting' }).eq('id', accountId)
+      workers.get(accountId)?.stop()
+      workers.delete(accountId)
+    } else {
+      const { data: account, error } = await supabase.from('wa_accounts').insert({ status: 'connecting' }).select().single()
+      if (error || !account) {
+        console.error('[/wa/connect] supabase error:', error)
+        return res.status(500).json({ error: error?.message || 'db error' })
+      }
+      accountId = account.id
     }
-
-    const accountId = account.id
     const sessionDir = path.join(__dirname, '../sessions', accountId)
     const wsToken = crypto.randomUUID()
 
@@ -82,9 +88,17 @@ app.post('/wa/connect', async (req, res) => {
 
 app.post('/wa/disconnect/:accountId', (req, res) => {
   const worker = workers.get(req.params.accountId)
-  if (!worker) return res.status(404).json({ error: 'not found' })
-  worker.stop()
+  worker?.stop()
   workers.delete(req.params.accountId)
+  res.json({ success: true })
+})
+
+app.delete('/wa/account/:accountId', async (req, res) => {
+  const { accountId } = req.params
+  workers.get(accountId)?.stop()
+  workers.delete(accountId)
+  const supabase = createClient()
+  await supabase.from('wa_accounts').delete().eq('id', accountId)
   res.json({ success: true })
 })
 
