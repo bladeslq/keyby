@@ -8,6 +8,13 @@ const { WhatsAppWorker } = require('./worker')
 const { createClient } = require('./db')
 
 const app = express()
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', process.env.WEB_APP_URL || '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  if (req.method === 'OPTIONS') return res.sendStatus(204)
+  next()
+})
 app.use(express.json())
 
 const server = http.createServer(app)
