@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Plus, RefreshCw, WifiOff, Loader2 } from 'lucide-react'
+import { Plus, RefreshCw, WifiOff, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 const statusColor: Record<WaAccountStatus, string> = {
@@ -42,6 +42,7 @@ export default function WhatsAppPage() {
   const [qrDialog, setQrDialog] = useState(false)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const [parserOnline, setParserOnline] = useState<boolean | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
   async function load() {
@@ -53,8 +54,18 @@ export default function WhatsAppPage() {
     setAccounts((data as WaAccount[]) || [])
   }
 
+  async function checkParser() {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_PARSER_URL}/health`, { signal: AbortSignal.timeout(4000) })
+      setParserOnline(res.ok)
+    } catch {
+      setParserOnline(false)
+    }
+  }
+
   useEffect(() => {
     load()
+    checkParser()
 
     // Real-time updates
     const supabase = createClient()
@@ -136,7 +147,17 @@ export default function WhatsAppPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={load}>
+          {parserOnline === true && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Парсер онлайн
+            </span>
+          )}
+          {parserOnline === false && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-full px-2.5 py-1">
+              <XCircle className="w-3.5 h-3.5" /> Парсер недоступен
+            </span>
+          )}
+          <Button variant="outline" size="sm" onClick={() => { load(); checkParser() }}>
             <RefreshCw className="w-4 h-4 mr-1.5" />
             Обновить
           </Button>

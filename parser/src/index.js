@@ -31,6 +31,9 @@ wss.on('connection', (ws, req) => {
   }
 })
 
+// ─── Health check ────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => res.json({ ok: true }))
+
 // ─── REST: connect a new WA account ──────────────────────────────────────────
 app.post('/wa/connect', async (req, res) => {
   const supabase = createClient()
