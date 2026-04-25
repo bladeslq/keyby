@@ -126,7 +126,7 @@ export default function WhatsAppPage() {
         toast.error('WhatsApp не ответил — попробуйте ещё раз')
         setQrDialog(false)
         setConnecting(false)
-      }, 30000)
+      }, 60000)
 
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data)
