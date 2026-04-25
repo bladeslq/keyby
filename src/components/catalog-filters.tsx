@@ -77,7 +77,7 @@ export function CatalogFilters() {
         className="w-28"
       />
 
-      <Button size="sm" onClick={applyFilters}>
+      <Button onClick={applyFilters}>
         <Search className="w-3.5 h-3.5 mr-1.5" />
         Найти
       </Button>
