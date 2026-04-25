@@ -46,6 +46,15 @@ export class WhatsAppWorker {
     this.phone = null
     this.pendingPhotoRequests = new Map()
     this._qrAttempts = 0
+    this._reconnectAttempts = 0
+    this._photoCleanupInterval = setInterval(() => this._cleanupPhotoRequests(), 60 * 60 * 1000)
+  }
+
+  _cleanupPhotoRequests() {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
+    for (const [phone, req] of this.pendingPhotoRequests) {
+      if (req.ts < cutoff) this.pendingPhotoRequests.delete(phone)
+    }
   }
 
   async start() {
@@ -93,6 +102,8 @@ export class WhatsAppWorker {
 
       if (connection === 'open') {
         this.phone = this.sock.user?.id?.split(':')[0] || null
+        this._qrAttempts = 0
+        this._reconnectAttempts = 0
         console.log(`[worker:${this.accountId}] connected as ${this.phone}`)
         await notifyWebApp({ type: 'account_status', accountId: this.accountId, status: 'active' })
         const supabase = createClient()
@@ -116,8 +127,17 @@ export class WhatsAppWorker {
           await supabase.from('wa_accounts').update({ status: 'disconnected' }).eq('id', this.accountId)
           this.onDisconnected?.('disconnected')
         } else {
-          console.log(`[worker:${this.accountId}] reconnecting in 5s...`)
-          setTimeout(() => this.start(), 5000)
+          this._reconnectAttempts++
+          if (this._reconnectAttempts > 10) {
+            console.error(`[worker:${this.accountId}] reconnect limit (10) reached, giving up`)
+            this._stopped = true
+            await supabase.from('wa_accounts').update({ status: 'disconnected' }).eq('id', this.accountId)
+            this.onDisconnected?.('disconnected')
+            return
+          }
+          const delayMs = Math.min(5000 * Math.pow(2, this._reconnectAttempts - 1), 5 * 60 * 1000)
+          console.log(`[worker:${this.accountId}] reconnect attempt ${this._reconnectAttempts}/10 in ${delayMs}ms`)
+          setTimeout(() => this.start(), delayMs)
         }
       }
     })
@@ -205,6 +225,7 @@ export class WhatsAppWorker {
 
   stop() {
     this._stopped = true
+    clearInterval(this._photoCleanupInterval)
     this.sock?.end()
   }
 }

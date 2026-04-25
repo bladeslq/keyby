@@ -13,6 +13,8 @@ if (process.stdout._handle?.setBlocking) process.stdout._handle.setBlocking(true
 if (process.stderr._handle?.setBlocking) process.stderr._handle.setBlocking(true)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const SESSIONS_DIR = process.env.SESSIONS_DIR || path.join(__dirname, '../sessions')
+console.log(`[startup] sessions dir: ${SESSIONS_DIR}`)
 
 const app = express()
 app.use((req, res, next) => {
@@ -72,7 +74,7 @@ app.post('/wa/connect', async (req, res) => {
       }
       accountId = account.id
     }
-    const sessionDir = path.join(__dirname, '../sessions', accountId)
+    const sessionDir = path.join(SESSIONS_DIR, accountId)
     const wsToken = crypto.randomUUID()
 
     const session = { ws: null, lastQr: null, lastConnected: null, createdAt: Date.now() }
@@ -134,11 +136,16 @@ app.get('/wa/groups/:accountId', async (req, res) => {
 
 async function init() {
   const supabase = createClient()
+  const fs = await import('fs')
+  if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true })
+
   const { data: accounts } = await supabase.from('wa_accounts').select('*').in('status', ['active', 'disconnected'])
   for (const account of accounts || []) {
-    const sessionDir = path.join(__dirname, '../sessions', account.id)
-    const fs = await import('fs')
-    if (!fs.existsSync(sessionDir)) continue
+    const sessionDir = path.join(SESSIONS_DIR, account.id)
+    if (!fs.existsSync(sessionDir)) {
+      console.log(`[init] no session for ${account.phone || account.id}, skipping`)
+      continue
+    }
     const worker = new WhatsAppWorker(account.id, sessionDir, null, null, (status) => { if (status === 'banned') workers.delete(account.id) })
     workers.set(account.id, worker)
     worker.start()
