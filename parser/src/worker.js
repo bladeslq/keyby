@@ -151,7 +151,7 @@ export class WhatsAppWorker {
     console.log(`[worker:${this.accountId}] parsed:`, parsed ? JSON.stringify(parsed).slice(0, 120) : 'null (not a property)')
     if (!parsed) return
 
-    const dup = await isDuplicate(parsed)
+    const dup = await isDuplicate(parsed, senderPhone)
     console.log(`[worker:${this.accountId}] duplicate:`, dup)
     if (dup) return
 
