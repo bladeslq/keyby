@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { WaAccount, WaAccountStatus } from '@/lib/types'
+import { WaAccount, WaAccountStatus, WaChat } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,7 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Plus, RefreshCw, WifiOff, Loader2, CheckCircle2, XCircle } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Plus, RefreshCw, WifiOff, Loader2, CheckCircle2, XCircle, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 
 const statusColor: Record<WaAccountStatus, string> = {
@@ -37,6 +38,11 @@ const statusLabel: Record<WaAccountStatus, string> = {
   banned: 'Забанен',
 }
 
+interface WaGroup {
+  jid: string
+  name: string
+}
+
 export default function WhatsAppPage() {
   const [accounts, setAccounts] = useState<WaAccount[]>([])
   const [qrDialog, setQrDialog] = useState(false)
@@ -44,6 +50,12 @@ export default function WhatsAppPage() {
   const [connecting, setConnecting] = useState(false)
   const [parserOnline, setParserOnline] = useState<boolean | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+
+  // Groups dialog
+  const [groupsAccount, setGroupsAccount] = useState<WaAccount | null>(null)
+  const [groups, setGroups] = useState<WaGroup[]>([])
+  const [chats, setChats] = useState<WaChat[]>([])
+  const [groupsLoading, setGroupsLoading] = useState(false)
 
   async function load() {
     const supabase = createClient()
@@ -67,7 +79,6 @@ export default function WhatsAppPage() {
     load()
     checkParser()
 
-    // Real-time updates
     const supabase = createClient()
     const channel = supabase
       .channel('wa_accounts')
@@ -82,7 +93,6 @@ export default function WhatsAppPage() {
     setQrCode(null)
     setConnecting(true)
 
-    // Request new QR from parser service
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_PARSER_URL}/wa/connect`,
@@ -92,7 +102,6 @@ export default function WhatsAppPage() {
       if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`)
       const { wsToken } = data
 
-      // Connect via WebSocket to stream QR
       const ws = new WebSocket(
         `${process.env.NEXT_PUBLIC_PARSER_WS_URL}/wa/qr?token=${wsToken}`
       )
@@ -145,6 +154,49 @@ export default function WhatsAppPage() {
     } catch {
       toast.error('Ошибка')
     }
+  }
+
+  async function openGroups(account: WaAccount) {
+    setGroupsAccount(account)
+    setGroups([])
+    setGroupsLoading(true)
+
+    const supabase = createClient()
+    const [groupsRes, { data: chatsData }] = await Promise.all([
+      fetch(`${process.env.NEXT_PUBLIC_PARSER_URL}/wa/groups/${account.id}`).then(r => r.json()).catch(() => []),
+      supabase.from('wa_chats').select('*').eq('account_id', account.id),
+    ])
+
+    setGroups(Array.isArray(groupsRes) ? groupsRes : [])
+    setChats((chatsData as WaChat[]) || [])
+    setGroupsLoading(false)
+  }
+
+  async function toggleChat(jid: string, name: string, currentEnabled: boolean | undefined) {
+    if (!groupsAccount) return
+    const supabase = createClient()
+    const existing = chats.find(c => c.chat_jid === jid)
+
+    if (!existing) {
+      // Создаём запись с enabled=false (выключаем)
+      const { data } = await supabase.from('wa_chats').insert({
+        account_id: groupsAccount.id,
+        chat_jid: jid,
+        chat_name: name,
+        enabled: false,
+      }).select().single()
+      if (data) setChats(prev => [...prev, data as WaChat])
+    } else {
+      const newEnabled = !existing.enabled
+      await supabase.from('wa_chats').update({ enabled: newEnabled }).eq('id', existing.id)
+      setChats(prev => prev.map(c => c.id === existing.id ? { ...c, enabled: newEnabled } : c))
+    }
+  }
+
+  function isEnabled(jid: string): boolean {
+    const chat = chats.find(c => c.chat_jid === jid)
+    if (!chat) return true // нет записи = включено по умолчанию
+    return chat.enabled
   }
 
   const totalParsed = accounts.reduce((s, a) => s + (a.messages_parsed || 0), 0)
@@ -227,16 +279,24 @@ export default function WhatsAppPage() {
                     : '—'}
                 </TableCell>
                 <TableCell className="text-right">
-                  {a.status === 'active' ? (
-                    <Button variant="ghost" size="sm" onClick={() => handleDisconnect(a.id)}>
-                      <WifiOff className="w-4 h-4 mr-1.5" />
-                      Отключить
-                    </Button>
-                  ) : a.status === 'disconnected' ? (
-                    <Button variant="ghost" size="sm" onClick={handleAddAccount}>
-                      Переподключить
-                    </Button>
-                  ) : null}
+                  <div className="flex items-center justify-end gap-2">
+                    {a.status === 'active' && (
+                      <Button variant="outline" size="sm" onClick={() => openGroups(a)}>
+                        <MessageSquare className="w-4 h-4 mr-1.5" />
+                        Группы
+                      </Button>
+                    )}
+                    {a.status === 'active' ? (
+                      <Button variant="ghost" size="sm" onClick={() => handleDisconnect(a.id)}>
+                        <WifiOff className="w-4 h-4 mr-1.5" />
+                        Отключить
+                      </Button>
+                    ) : a.status === 'disconnected' ? (
+                      <Button variant="ghost" size="sm" onClick={handleAddAccount}>
+                        Переподключить
+                      </Button>
+                    ) : null}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -270,6 +330,43 @@ export default function WhatsAppPage() {
               </p>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Groups Dialog */}
+      <Dialog open={!!groupsAccount} onOpenChange={() => setGroupsAccount(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Группы — {groupsAccount?.phone}</DialogTitle>
+          </DialogHeader>
+          {groupsLoading ? (
+            <div className="py-10 flex justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : groups.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Групп не найдено</p>
+          ) : (
+            <div className="space-y-1 max-h-96 overflow-y-auto pr-1">
+              {groups.map((g) => {
+                const enabled = isEnabled(g.jid)
+                return (
+                  <div key={g.jid} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50">
+                    <div>
+                      <p className="text-sm font-medium">{g.name}</p>
+                      <p className="text-xs text-muted-foreground">{g.jid}</p>
+                    </div>
+                    <Switch
+                      checked={enabled}
+                      onCheckedChange={() => toggleChat(g.jid, g.name, enabled)}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Все группы включены по умолчанию. Выключите те, которые не нужно парсить.
+          </p>
         </DialogContent>
       </Dialog>
     </div>

@@ -113,6 +113,11 @@ export class WhatsAppWorker {
 
     const supabase = createClient()
 
+    if (isGroup) {
+      const { data: chat } = await supabase.from('wa_chats').select('enabled').eq('account_id', this.accountId).eq('chat_jid', chatId).single()
+      if (chat && chat.enabled === false) return
+    }
+
     const hasMedia = msg.message?.imageMessage || msg.message?.documentMessage
     if (!isGroup && hasMedia && this.pendingPhotoRequests.has(senderPhone)) {
       await this._handlePhotoReply(msg, senderPhone)
