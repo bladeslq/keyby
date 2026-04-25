@@ -72,8 +72,8 @@ export default function PropertyEditPage() {
   return (
     <div className="p-6 space-y-6 max-w-3xl">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/properties" />}>
-          <ArrowLeft className="w-4 h-4 mr-1" />Назад
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/properties"><ArrowLeft className="w-4 h-4 mr-1" />Назад</Link>
         </Button>
         <h1 className="text-xl font-bold">{isNew ? 'Новый объект' : form.title}</h1>
       </div>

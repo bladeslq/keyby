@@ -11,9 +11,11 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             КЕЙБИ<span className="text-[10px] font-normal text-muted-foreground align-super ml-0.5">beta</span>
           </Link>
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/catalog" />}>
-              <Heart className="w-4 h-4 mr-1.5" />
-              Избранное
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/catalog">
+                <Heart className="w-4 h-4 mr-1.5" />
+                Избранное
+              </Link>
             </Button>
           </div>
         </div>

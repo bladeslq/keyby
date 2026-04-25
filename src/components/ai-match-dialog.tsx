@@ -114,8 +114,8 @@ export function AiMatchDialog({ client, onClose }: AiMatchDialogProps) {
                   </p>
                 </div>
                 <p className="text-xs text-muted-foreground bg-muted rounded p-2">{r.reason}</p>
-                <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/properties/${r.property.id}`} target="_blank" />}>
-                  Открыть объект
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/properties/${r.property.id}`} target="_blank">Открыть объект</Link>
                 </Button>
               </div>
             ))}

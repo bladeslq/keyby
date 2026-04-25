@@ -28,9 +28,11 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/catalog" />} className="mb-6 -ml-2">
-        <ArrowLeft className="w-4 h-4 mr-1" />
-        Все объекты
+      <Button variant="ghost" size="sm" asChild className="mb-6 -ml-2">
+        <Link href="/catalog">
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Все объекты
+        </Link>
       </Button>
 
       {/* Photos */}
