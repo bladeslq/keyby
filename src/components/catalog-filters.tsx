@@ -1,36 +1,44 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DISTRICTS, PROPERTY_TYPE_LABELS } from '@/lib/types'
-import { X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 
 export function CatalogFilters() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const district = searchParams.get('district') || ''
-  const type = searchParams.get('type') || ''
-  const priceMin = searchParams.get('price_min') || ''
-  const priceMax = searchParams.get('price_max') || ''
+  const [district, setDistrict] = useState(searchParams.get('district') || '')
+  const [type, setType] = useState(searchParams.get('type') || '')
+  const [priceMin, setPriceMin] = useState(searchParams.get('price_min') || '')
+  const [priceMax, setPriceMax] = useState(searchParams.get('price_max') || '')
+
   const hasFilters = district || type || priceMin || priceMax
 
-  function update(key: string, value: string | null) {
-    const params = new URLSearchParams(searchParams.toString())
-    if (value) params.set(key, value)
-    else params.delete(key)
+  function applyFilters() {
+    const params = new URLSearchParams()
+    if (district) params.set('district', district)
+    if (type) params.set('type', type)
+    if (priceMin) params.set('price_min', priceMin)
+    if (priceMax) params.set('price_max', priceMax)
     router.push(`/catalog?${params.toString()}`)
   }
 
-  function handlePriceBlur(key: string, value: string) {
-    update(key, value)
+  function reset() {
+    setDistrict('')
+    setType('')
+    setPriceMin('')
+    setPriceMax('')
+    router.push('/catalog')
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2 mb-8">
-      <Select value={district || undefined} onValueChange={(v) => update('district', v)}>
+      <Select value={district || undefined} onValueChange={(v) => setDistrict(v ?? '')}>
         <SelectTrigger className="w-48">
           <SelectValue placeholder="Все районы" />
         </SelectTrigger>
@@ -41,7 +49,7 @@ export function CatalogFilters() {
         </SelectContent>
       </Select>
 
-      <Select value={type || undefined} onValueChange={(v) => update('type', v)}>
+      <Select value={type || undefined} onValueChange={(v) => setType(v ?? '')}>
         <SelectTrigger className="w-48">
           <SelectValue placeholder="Все типы" />
         </SelectTrigger>
@@ -55,26 +63,27 @@ export function CatalogFilters() {
       <Input
         type="number"
         placeholder="Цена от"
-        defaultValue={priceMin}
-        className="w-28 h-8"
-        onBlur={(e) => handlePriceBlur('price_min', e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handlePriceBlur('price_min', (e.target as HTMLInputElement).value)
-        }}
+        value={priceMin}
+        onChange={(e) => setPriceMin(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+        className="w-28"
       />
       <Input
         type="number"
         placeholder="Цена до"
-        defaultValue={priceMax}
-        className="w-28 h-8"
-        onBlur={(e) => handlePriceBlur('price_max', e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handlePriceBlur('price_max', (e.target as HTMLInputElement).value)
-        }}
+        value={priceMax}
+        onChange={(e) => setPriceMax(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+        className="w-28"
       />
 
+      <Button size="sm" onClick={applyFilters}>
+        <Search className="w-3.5 h-3.5 mr-1.5" />
+        Найти
+      </Button>
+
       {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={() => router.push('/catalog')}>
+        <Button variant="ghost" size="sm" onClick={reset}>
           <X className="w-3.5 h-3.5 mr-1" />
           Сбросить
         </Button>
