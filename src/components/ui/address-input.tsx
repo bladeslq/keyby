@@ -89,7 +89,7 @@ export function AddressInput({ value, onChange, placeholder, className }: Addres
         className={className}
       />
       {open && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-background border rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-[9999] w-full mt-1 bg-background border rounded-lg shadow-lg overflow-hidden">
           {suggestions.map((s, i) => (
             <button
               key={i}
