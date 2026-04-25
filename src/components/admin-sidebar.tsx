@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { LayoutDashboard, Building2, Users, Smartphone, LogOut } from 'lucide-react'
 import {
   Sidebar,
@@ -14,19 +15,43 @@ import {
   SidebarGroup,
   SidebarGroupContent,
 } from '@/components/ui/sidebar'
+import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-
-const navItems = [
-  { href: '/dashboard', label: 'Дашборд', icon: LayoutDashboard },
-  { href: '/properties', label: 'Объекты', icon: Building2 },
-  { href: '/clients', label: 'Клиенты', icon: Users },
-  { href: '/whatsapp', label: 'WhatsApp', icon: Smartphone },
-]
 
 export function AdminSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [newCount, setNewCount] = useState(0)
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    async function loadCount() {
+      const { count } = await supabase
+        .from('properties')
+        .select('*', { count: 'exact', head: true })
+        .in('status', ['draft', 'waiting_photos'])
+      setNewCount(count ?? 0)
+    }
+
+    loadCount()
+
+    const channel = supabase
+      .channel('new-properties')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'properties' }, (payload) => {
+        setNewCount((n) => n + 1)
+        const title = payload.new?.title || 'Новый объект'
+        toast.success(`Новый объект: ${title}`, {
+          description: [payload.new?.district, payload.new?.price ? `${payload.new.price.toLocaleString('ru')} ₽` : null]
+            .filter(Boolean).join(' · '),
+          duration: 6000,
+        })
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -49,16 +74,46 @@ export function AdminSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)}>
-                    <Link href={item.href}>
-                      <item.icon className="w-4 h-4" />
-                      {item.label}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard')}>
+                  <Link href="/dashboard">
+                    <LayoutDashboard className="w-4 h-4" />
+                    Дашборд
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname.startsWith('/properties')}>
+                  <Link href="/properties" className="flex items-center justify-between w-full">
+                    <span className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      Объекты
+                    </span>
+                    {newCount > 0 && (
+                      <Badge className="ml-auto h-5 min-w-5 px-1.5 text-[11px]">{newCount}</Badge>
+                    )}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname.startsWith('/clients')}>
+                  <Link href="/clients">
+                    <Users className="w-4 h-4" />
+                    Клиенты
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname.startsWith('/whatsapp')}>
+                  <Link href="/whatsapp">
+                    <Smartphone className="w-4 h-4" />
+                    WhatsApp
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

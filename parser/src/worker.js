@@ -141,8 +141,10 @@ export class WhatsAppWorker {
 
     console.log(`[worker:${this.accountId}] sending to webhook: ${parsed.title}`)
 
-    const webhookRes = await notifyWebApp({ ...parsed, type: 'new_property', propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
+    await notifyWebApp({ ...parsed, type: 'new_property', propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
     console.log(`[worker:${this.accountId}] webhook done`)
+
+    await supabase.rpc('increment_messages_parsed', { p_account_id: this.accountId })
   }
 
   async _handlePhotoReply(msg, senderPhone) {
