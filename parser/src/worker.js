@@ -1,4 +1,4 @@
-import makeWASocket, { useMultiFileAuthState, DisconnectReason, fetchLatestWaWebVersion } from '@whiskeysockets/baileys'
+import makeWASocket, { useMultiFileAuthState, DisconnectReason, fetchLatestWaWebVersion, downloadMediaMessage } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
 import pino from 'pino'
 import axios from 'axios'
@@ -45,6 +45,7 @@ export class WhatsAppWorker {
     this.sock = null
     this.phone = null
     this.pendingPhotoRequests = new Map()
+    this.recentGroupPosts = new Map()
     this._qrAttempts = 0
     this._reconnectAttempts = 0
     this._photoCleanupInterval = setInterval(() => this._cleanupPhotoRequests(), 60 * 60 * 1000)
@@ -54,6 +55,32 @@ export class WhatsAppWorker {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000
     for (const [phone, req] of this.pendingPhotoRequests) {
       if (req.ts < cutoff) this.pendingPhotoRequests.delete(phone)
+    }
+    const groupCutoff = Date.now() - 60 * 1000
+    for (const [key, ts] of this.recentGroupPosts) {
+      if (ts < groupCutoff) this.recentGroupPosts.delete(key)
+    }
+  }
+
+  async _uploadPhoto(msg, senderPhone) {
+    try {
+      const buffer = await downloadMediaMessage(msg, 'buffer', {})
+      const mimetype = msg.message?.imageMessage?.mimetype || 'image/jpeg'
+      const ext = mimetype.split('/')[1]?.split(';')[0] || 'jpg'
+      const filePath = `${senderPhone}/${Date.now()}_${msg.key.id}.${ext}`
+      const supabase = createClient()
+      const { error: upErr } = await supabase.storage
+        .from('property-photos')
+        .upload(filePath, buffer, { contentType: mimetype, upsert: false })
+      if (upErr) {
+        console.error(`[worker:${this.accountId}] photo upload error:`, upErr.message)
+        return null
+      }
+      const { data } = supabase.storage.from('property-photos').getPublicUrl(filePath)
+      return data.publicUrl
+    } catch (err) {
+      console.error(`[worker:${this.accountId}] photo download/upload failed:`, err.message)
+      return null
     }
   }
 
@@ -163,14 +190,34 @@ export class WhatsAppWorker {
       if (chat && chat.enabled === false) return
     }
 
-    const hasMedia = msg.message?.imageMessage || msg.message?.documentMessage
+    const imageMessage = msg.message?.imageMessage
+    const hasMedia = imageMessage || msg.message?.documentMessage
     if (!isGroup && hasMedia && this.pendingPhotoRequests.has(senderPhone)) {
       await this._handlePhotoReply(msg, senderPhone)
       return
     }
 
-    const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text
-    if (!text || !isGroup) return
+    const text = msg.message?.conversation
+      || msg.message?.extendedTextMessage?.text
+      || imageMessage?.caption
+
+    if (!isGroup) return
+
+    const groupKey = `${chatId}|${senderPhone}`
+
+    if (!text && imageMessage) {
+      const recentTs = this.recentGroupPosts.get(groupKey)
+      if (recentTs && Date.now() - recentTs <= 60 * 1000) {
+        const url = await this._uploadPhoto(msg, senderPhone)
+        if (url) {
+          await notifyWebApp({ type: 'photos', senderPhone, photos: [url] })
+          console.log(`[worker:${this.accountId}] follow-up photo attached for ${senderPhone}`)
+        }
+      }
+      return
+    }
+
+    if (!text) return
 
     console.log(`[worker:${this.accountId}] message from group, text: ${text.slice(0, 80)}`)
 
@@ -187,6 +234,16 @@ export class WhatsAppWorker {
 
     await notifyWebApp({ ...parsed, type: 'new_property', propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
     console.log(`[worker:${this.accountId}] webhook done`)
+
+    this.recentGroupPosts.set(groupKey, Date.now())
+
+    if (imageMessage) {
+      const url = await this._uploadPhoto(msg, senderPhone)
+      if (url) {
+        await notifyWebApp({ type: 'photos', senderPhone, photos: [url] })
+        console.log(`[worker:${this.accountId}] caption photo attached for ${senderPhone}`)
+      }
+    }
 
     await supabase.rpc('increment_messages_parsed', { p_account_id: this.accountId })
   }
