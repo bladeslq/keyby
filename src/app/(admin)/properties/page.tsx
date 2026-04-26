@@ -7,7 +7,6 @@ import {
 } from '@/components/ui/table'
 import { ImageOff, Plus } from 'lucide-react'
 import { PropertyRowActions } from '@/components/property-row-actions'
-import { PropertiesFilters } from '@/components/properties-filters'
 
 const statusColor: Record<PropertyStatus, string> = {
   published: 'bg-green-100 text-green-800 border-green-200',
@@ -16,65 +15,24 @@ const statusColor: Record<PropertyStatus, string> = {
   archived: 'bg-red-100 text-red-700 border-red-200',
 }
 
-interface PageProps {
-  searchParams: Promise<Record<string, string>>
-}
-
-export default async function PropertiesPage({ searchParams }: PageProps) {
-  const params = await searchParams
+export default async function PropertiesPage() {
   const supabase = await createClient()
+  const { data: propertiesData } = await supabase
+    .from('properties')
+    .select('*')
+    .order('created_at', { ascending: false })
 
-  let query = supabase.from('properties').select('*')
-
-  if (params.q) {
-    query = query.or(`title.ilike.%${params.q}%,address.ilike.%${params.q}%`)
-  }
-  if (params.status) {
-    query = query.eq('status', params.status)
-  }
-  if (params.price_min) {
-    query = query.gte('price', Number(params.price_min))
-  }
-  if (params.price_max) {
-    query = query.lte('price', Number(params.price_max))
-  }
-  if (params.source) {
-    query = query.eq('source_chat_name', params.source)
-  }
-  if (params.photo_req === 'yes') {
-    query = query.not('photos_requested_at', 'is', null)
-  } else if (params.photo_req === 'no') {
-    query = query.is('photos_requested_at', null)
-  }
-  if (params.updated) {
-    const now = new Date()
-    const cutoff = new Date(now)
-    if (params.updated === 'today') cutoff.setHours(0, 0, 0, 0)
-    else if (params.updated === 'week') cutoff.setDate(now.getDate() - 7)
-    else if (params.updated === 'month') cutoff.setMonth(now.getMonth() - 1)
-    query = query.gte('updated_at', cutoff.toISOString())
-  }
-
-  const { data: propertiesData } = await query.order('created_at', { ascending: false })
   const properties = (propertiesData ?? []) as Property[]
 
-  const { data: sourcesData } = await supabase
-    .from('properties')
-    .select('source_chat_name')
-    .not('source_chat_name', 'is', null)
-  const sources = [...new Set((sourcesData ?? []).map((r) => r.source_chat_name as string))].sort()
-
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Объекты</h1>
-          <p className="text-muted-foreground text-sm mt-1">{properties.length} объектов</p>
+          <p className="text-muted-foreground text-sm mt-1">{properties.length} объектов в базе</p>
         </div>
         <Button asChild><Link href="/properties/new"><Plus />Новый объект</Link></Button>
       </div>
-
-      <PropertiesFilters sources={sources} />
 
       <div className="border rounded-xl overflow-hidden">
         <Table>
@@ -145,7 +103,7 @@ export default async function PropertiesPage({ searchParams }: PageProps) {
             {properties.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                  Объектов не найдено.
+                  Объектов пока нет. Они появятся автоматически из WhatsApp чатов.
                 </TableCell>
               </TableRow>
             )}
