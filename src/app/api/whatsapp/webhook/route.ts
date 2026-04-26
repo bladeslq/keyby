@@ -16,7 +16,7 @@ function normalizeType(t: string | null | undefined): string {
   return 'other'
 }
 
-// Called by the parser service when it finds a new property or receives photos
+// Called by the parser service when it finds a new property
 export async function POST(req: Request) {
   const secret = req.headers.get('x-parser-secret')
   if (secret !== process.env.PARSER_SECRET) {
@@ -64,27 +64,6 @@ export async function POST(req: Request) {
     }).select('id').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true, id: inserted.id })
-  }
-
-  if (body.type === 'photos') {
-    if (!body.propertyId) return NextResponse.json({ error: 'propertyId required' }, { status: 400 })
-
-    const { data: prop } = await supabase
-      .from('properties')
-      .select('id, photos')
-      .eq('id', body.propertyId)
-      .single()
-
-    if (!prop) return NextResponse.json({ skipped: true })
-
-    const updated = [...(prop.photos || []), ...body.photos]
-
-    await supabase
-      .from('properties')
-      .update({ photos: updated, status: updated.length > 0 ? 'draft' : 'waiting_photos' })
-      .eq('id', prop.id)
-
-    return NextResponse.json({ success: true })
   }
 
   if (body.type === 'account_status') {
