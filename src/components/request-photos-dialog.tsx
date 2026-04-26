@@ -87,6 +87,19 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {property.source_chat_name && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Группа</p>
+                <p className="font-medium truncate">{property.source_chat_name}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Отправитель</p>
+              <p className="font-medium">{isLid ? 'Номер скрыт (LID)' : phone ? `+${phone}` : '—'}</p>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">Исходное сообщение риелтора</Label>
