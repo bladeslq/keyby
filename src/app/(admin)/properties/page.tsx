@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Property, STATUS_LABELS, PROPERTY_TYPE_LABELS, PropertyStatus } from '@/lib/types'
-import { Badge } from '@/components/ui/badge'
+import { Property, STATUS_LABELS, PropertyStatus } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -11,8 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Pencil, ImageOff, Plus } from 'lucide-react'
-import { DeletePropertyButton } from '@/components/DeletePropertyButton'
+import { ImageOff, Plus } from 'lucide-react'
+import { PropertyRowActions } from '@/components/property-row-actions'
 
 const statusVariant: Record<PropertyStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   published: 'default',
@@ -56,8 +55,9 @@ export default async function PropertiesPage() {
               <TableHead>Статус</TableHead>
               <TableHead>Цена</TableHead>
               <TableHead>Источник</TableHead>
+              <TableHead>Запрос фото</TableHead>
               <TableHead>Обновлено</TableHead>
-              <TableHead className="text-right">Действие</TableHead>
+              <TableHead className="w-12 text-right"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -93,27 +93,30 @@ export default async function PropertiesPage() {
                     {p.source_chat_name || '—'}
                   </p>
                 </TableCell>
+                <TableCell>
+                  {p.photos_requested_at ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-blue-50 text-blue-700 border-blue-200">
+                      {new Date(p.photos_requested_at).toLocaleDateString('ru', {
+                        day: 'numeric', month: 'short',
+                      })}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {new Date(p.updated_at).toLocaleDateString('ru', {
                     day: 'numeric', month: 'long', year: 'numeric',
                   })}
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/properties/${p.id}`}>
-                        <Pencil className="w-4 h-4 mr-1.5" />
-                        Открыть
-                      </Link>
-                    </Button>
-                    <DeletePropertyButton id={p.id} />
-                  </div>
+                  <PropertyRowActions property={p} />
                 </TableCell>
               </TableRow>
             ))}
             {properties.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                   Объектов пока нет. Они появятся автоматически из WhatsApp чатов.
                 </TableCell>
               </TableRow>
