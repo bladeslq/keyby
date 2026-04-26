@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { Property, STATUS_LABELS, PropertyStatus } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -75,9 +74,7 @@ export default async function PropertiesPage({ searchParams }: PageProps) {
         <Button asChild><Link href="/properties/new"><Plus />Новый объект</Link></Button>
       </div>
 
-      <Suspense fallback={null}>
-        <PropertiesFilters sources={sources} />
-      </Suspense>
+      <PropertiesFilters sources={sources} />
 
       <div className="border rounded-xl overflow-hidden">
         <Table>
