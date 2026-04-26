@@ -39,7 +39,9 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
   const [confirming, setConfirming] = useState(false)
 
   const phone = (property.sender_phone || '').replace(/\D/g, '')
-  const waUrl = phone
+  // WA internal LIDs look like 14-digit numbers starting with "100" — not real phones
+  const isLid = phone.length >= 13 && phone.startsWith('100')
+  const waUrl = phone && !isLid
     ? `https://wa.me/${phone}?text=${encodeURIComponent(requestText)}`
     : null
 
@@ -107,6 +109,11 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
 
           {!phone && (
             <p className="text-xs text-destructive">У объекта нет номера отправителя — открыть чат не получится.</p>
+          )}
+          {phone && isLid && (
+            <p className="text-xs text-destructive">
+              Номер отправителя ({phone}) — это внутренний ID WhatsApp, а не реальный телефон. Открыть чат через ссылку не получится — найдите этого риелтора вручную в WA.
+            </p>
           )}
 
           {waOpened && (
