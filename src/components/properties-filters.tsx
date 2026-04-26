@@ -1,12 +1,16 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useCallback, useTransition } from 'react'
+import { useCallback, useTransition, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { STATUS_LABELS, PropertyStatus } from '@/lib/types'
 import { X } from 'lucide-react'
+
+const PRICE_MAX = 200_000
+const PRICE_STEP = 1_000
 
 interface Props {
   sources: string[]
@@ -19,6 +23,10 @@ export function PropertiesFilters({ sources }: Props) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()
+
+  const initMin = Number(searchParams.get('price_min') || 0)
+  const initMax = Number(searchParams.get('price_max') || PRICE_MAX)
+  const [priceRange, setPriceRange] = useState([initMin, initMax])
 
   function get(key: string) { return searchParams.get(key) ?? '' }
 
@@ -54,21 +62,24 @@ export function PropertiesFilters({ sources }: Props) {
         </SelectContent>
       </Select>
 
-      <div className="flex items-center gap-1">
-        <Input
-          type="number"
-          placeholder="Цена от"
-          className="w-28"
-          defaultValue={get('price_min')}
-          onChange={(e) => set('price_min', e.target.value)}
-        />
-        <span className="text-muted-foreground text-sm">—</span>
-        <Input
-          type="number"
-          placeholder="до"
-          className="w-24"
-          defaultValue={get('price_max')}
-          onChange={(e) => set('price_max', e.target.value)}
+      <div className="flex flex-col gap-1 w-56">
+        <div className="flex justify-between text-xs text-muted-foreground px-0.5">
+          <span>{priceRange[0] === 0 ? 'от 0' : `от ${priceRange[0].toLocaleString('ru')}₽`}</span>
+          <span>{priceRange[1] >= PRICE_MAX ? 'любая' : `до ${priceRange[1].toLocaleString('ru')}₽`}</span>
+        </div>
+        <Slider
+          min={0}
+          max={PRICE_MAX}
+          step={PRICE_STEP}
+          value={priceRange}
+          onValueChange={(v) => setPriceRange(v as number[])}
+          onValueCommit={(v) => {
+            const [min, max] = v as number[]
+            const params = new URLSearchParams(searchParams.toString())
+            min > 0 ? params.set('price_min', String(min)) : params.delete('price_min')
+            max < PRICE_MAX ? params.set('price_max', String(max)) : params.delete('price_max')
+            startTransition(() => router.replace(`${pathname}?${params.toString()}`))
+          }}
         />
       </div>
 
