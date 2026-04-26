@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+const ALLOWED_TYPES = new Set(['room', 'studio', '1k', '2k', '3k', '4k+', 'house', 'other'])
+
+function normalizeType(t: string | null | undefined): string {
+  if (!t) return 'other'
+  const lower = String(t).toLowerCase().trim()
+  if (ALLOWED_TYPES.has(lower)) return lower
+  const m = lower.match(/^(\d+)\s*[kк]\+?$/)
+  if (m) {
+    const n = parseInt(m[1], 10)
+    if (n >= 4) return '4k+'
+    if (n >= 1 && n <= 3) return `${n}k`
+  }
+  return 'other'
+}
+
 // Called by the parser service when it finds a new property or receives photos
 export async function POST(req: Request) {
   const secret = req.headers.get('x-parser-secret')
@@ -33,7 +48,7 @@ export async function POST(req: Request) {
       district: body.district,
       price: body.price,
       deposit: body.deposit,
-      type: body.propertyType,
+      type: normalizeType(body.propertyType),
       rooms: body.rooms,
       area: body.area,
       floor: body.floor,
