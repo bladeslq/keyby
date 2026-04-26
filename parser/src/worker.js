@@ -30,10 +30,15 @@ async function notifyWebApp(payload) {
       timeout: 10000,
     })
     console.log('[worker] webhook response:', res.status, JSON.stringify(res.data).slice(0, 100))
+    return res.data
   } catch (err) {
     console.error('[worker] webhook error:', err.response?.status, err.response?.data || err.message)
+    return null
   }
 }
+
+const GROUP_CONTEXT_TTL_MS = 30 * 60 * 1000
+const ORPHAN_PHOTO_TTL_MS = 5 * 60 * 1000
 
 export class WhatsAppWorker {
   constructor(accountId, sessionDir, onQr, onConnected, onDisconnected) {
@@ -45,20 +50,26 @@ export class WhatsAppWorker {
     this.sock = null
     this.phone = null
     this.pendingPhotoRequests = new Map()
-    this.recentGroupPosts = new Map()
+    // groupContexts: key = `${chatId}|${senderPhone}`
+    // value = { propertyId: string|null, ts: number, orphanPhotos: [{ url, ts }] }
+    this.groupContexts = new Map()
     this._qrAttempts = 0
     this._reconnectAttempts = 0
-    this._photoCleanupInterval = setInterval(() => this._cleanupPhotoRequests(), 60 * 60 * 1000)
+    this._photoCleanupInterval = setInterval(() => this._cleanupPhotoRequests(), 5 * 60 * 1000)
   }
 
   _cleanupPhotoRequests() {
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000
+    const dmCutoff = Date.now() - 24 * 60 * 60 * 1000
     for (const [phone, req] of this.pendingPhotoRequests) {
-      if (req.ts < cutoff) this.pendingPhotoRequests.delete(phone)
+      if (req.ts < dmCutoff) this.pendingPhotoRequests.delete(phone)
     }
-    const groupCutoff = Date.now() - 60 * 1000
-    for (const [key, ts] of this.recentGroupPosts) {
-      if (ts < groupCutoff) this.recentGroupPosts.delete(key)
+    const ctxCutoff = Date.now() - GROUP_CONTEXT_TTL_MS
+    const orphanCutoff = Date.now() - ORPHAN_PHOTO_TTL_MS
+    for (const [key, ctx] of this.groupContexts) {
+      ctx.orphanPhotos = ctx.orphanPhotos.filter(p => p.ts >= orphanCutoff)
+      if (ctx.ts < ctxCutoff && ctx.orphanPhotos.length === 0) {
+        this.groupContexts.delete(key)
+      }
     }
   }
 
@@ -178,6 +189,13 @@ export class WhatsAppWorker {
     })
   }
 
+  _getActiveTarget(groupKey) {
+    const ctx = this.groupContexts.get(groupKey)
+    if (!ctx || !ctx.propertyId) return null
+    if (Date.now() - ctx.ts > GROUP_CONTEXT_TTL_MS) return null
+    return ctx
+  }
+
   async _handleMessage(msg) {
     const chatId = msg.key.remoteJid
     const isGroup = chatId?.endsWith('@g.us')
@@ -196,23 +214,29 @@ export class WhatsAppWorker {
       await this._handlePhotoReply(msg, senderPhone)
       return
     }
+    if (!isGroup) return
 
     const text = msg.message?.conversation
       || msg.message?.extendedTextMessage?.text
       || imageMessage?.caption
 
-    if (!isGroup) return
-
     const groupKey = `${chatId}|${senderPhone}`
 
+    // Case A: pure photo, no caption — append to active context, or stash as orphan
     if (!text && imageMessage) {
-      const recentTs = this.recentGroupPosts.get(groupKey)
-      if (recentTs && Date.now() - recentTs <= 60 * 1000) {
-        const url = await this._uploadPhoto(msg, senderPhone)
-        if (url) {
-          await notifyWebApp({ type: 'photos', senderPhone, photos: [url] })
-          console.log(`[worker:${this.accountId}] follow-up photo attached for ${senderPhone}`)
-        }
+      const url = await this._uploadPhoto(msg, senderPhone)
+      if (!url) return
+
+      const active = this._getActiveTarget(groupKey)
+      if (active) {
+        await notifyWebApp({ type: 'photos', propertyId: active.propertyId, photos: [url] })
+        active.ts = Date.now()
+        console.log(`[worker:${this.accountId}] photo attached to ${active.propertyId} (sender ${senderPhone})`)
+      } else {
+        const ctx = this.groupContexts.get(groupKey) || { propertyId: null, ts: 0, orphanPhotos: [] }
+        ctx.orphanPhotos.push({ url, ts: Date.now() })
+        this.groupContexts.set(groupKey, ctx)
+        console.log(`[worker:${this.accountId}] orphan photo stashed for ${senderPhone} (no active listing yet)`)
       }
       return
     }
@@ -224,25 +248,57 @@ export class WhatsAppWorker {
     const chatName = await this._getChatName(chatId)
     const parsed = await parseMessage(text)
     console.log(`[worker:${this.accountId}] parsed:`, parsed ? JSON.stringify(parsed).slice(0, 120) : 'null (not a property)')
-    if (!parsed) return
 
-    const dup = await isDuplicate(parsed, senderPhone)
+    // Case B: text/caption that isn't a listing (e.g. "вот ещё 2 фото")
+    //         — if there's an attached photo, attach it to the active listing
+    if (!parsed) {
+      if (imageMessage) {
+        const url = await this._uploadPhoto(msg, senderPhone)
+        if (!url) return
+        const active = this._getActiveTarget(groupKey)
+        if (active) {
+          await notifyWebApp({ type: 'photos', propertyId: active.propertyId, photos: [url] })
+          active.ts = Date.now()
+          console.log(`[worker:${this.accountId}] caption-only photo attached to ${active.propertyId}`)
+        } else {
+          const ctx = this.groupContexts.get(groupKey) || { propertyId: null, ts: 0, orphanPhotos: [] }
+          ctx.orphanPhotos.push({ url, ts: Date.now() })
+          this.groupContexts.set(groupKey, ctx)
+        }
+      }
+      return
+    }
+
+    // Case C: new listing parsed
+    const dup = await isDuplicate(parsed)
     console.log(`[worker:${this.accountId}] duplicate:`, dup)
     if (dup) return
 
     console.log(`[worker:${this.accountId}] sending to webhook: ${parsed.title}`)
+    const result = await notifyWebApp({ ...parsed, type: 'new_property', propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
+    const propertyId = result?.id
+    if (!propertyId) {
+      console.error(`[worker:${this.accountId}] webhook did not return id`)
+      return
+    }
+    console.log(`[worker:${this.accountId}] new property id: ${propertyId}`)
 
-    await notifyWebApp({ ...parsed, type: 'new_property', propertyType: parsed.type, chatId, chatName, account: this.phone, senderPhone, rawMessage: parsed.raw })
-    console.log(`[worker:${this.accountId}] webhook done`)
+    // Replace context: subsequent photos from this sender go to the NEW listing
+    const prevCtx = this.groupContexts.get(groupKey)
+    const orphanCutoff = Date.now() - ORPHAN_PHOTO_TTL_MS
+    const orphanUrls = (prevCtx?.orphanPhotos || [])
+      .filter(p => p.ts >= orphanCutoff)
+      .map(p => p.url)
+    this.groupContexts.set(groupKey, { propertyId, ts: Date.now(), orphanPhotos: [] })
 
-    this.recentGroupPosts.set(groupKey, Date.now())
-
+    const photosToAttach = [...orphanUrls]
     if (imageMessage) {
       const url = await this._uploadPhoto(msg, senderPhone)
-      if (url) {
-        await notifyWebApp({ type: 'photos', senderPhone, photos: [url] })
-        console.log(`[worker:${this.accountId}] caption photo attached for ${senderPhone}`)
-      }
+      if (url) photosToAttach.push(url)
+    }
+    if (photosToAttach.length) {
+      await notifyWebApp({ type: 'photos', propertyId, photos: photosToAttach })
+      console.log(`[worker:${this.accountId}] attached ${photosToAttach.length} photo(s) to ${propertyId} (orphans=${orphanUrls.length})`)
     }
 
     await supabase.rpc('increment_messages_parsed', { p_account_id: this.accountId })

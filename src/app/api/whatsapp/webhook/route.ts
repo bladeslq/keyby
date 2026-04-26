@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       } catch { /* оставляем как есть */ }
     }
 
-    const { error } = await supabase.from('properties').insert({
+    const { data: inserted, error } = await supabase.from('properties').insert({
       title: body.title,
       address: normalizedAddress,
       district: body.district,
@@ -46,30 +46,28 @@ export async function POST(req: Request) {
       source_account: body.account,
       sender_phone: body.senderPhone,
       raw_message: body.rawMessage,
-    })
+    }).select('id').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, id: inserted.id })
   }
 
   if (body.type === 'photos') {
-    // Append photos to existing property matched by sender_phone
-    const { data: props } = await supabase
+    if (!body.propertyId) return NextResponse.json({ error: 'propertyId required' }, { status: 400 })
+
+    const { data: prop } = await supabase
       .from('properties')
       .select('id, photos')
-      .eq('sender_phone', body.senderPhone)
-      .eq('status', 'waiting_photos')
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .eq('id', body.propertyId)
+      .single()
 
-    if (!props?.length) return NextResponse.json({ skipped: true })
+    if (!prop) return NextResponse.json({ skipped: true })
 
-    const existing = props[0]
-    const updated = [...(existing.photos || []), ...body.photos]
+    const updated = [...(prop.photos || []), ...body.photos]
 
     await supabase
       .from('properties')
       .update({ photos: updated, status: updated.length > 0 ? 'draft' : 'waiting_photos' })
-      .eq('id', existing.id)
+      .eq('id', prop.id)
 
     return NextResponse.json({ success: true })
   }
