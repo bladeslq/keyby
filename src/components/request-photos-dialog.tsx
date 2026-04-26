@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Copy, Check, MessageCircle, ExternalLink } from 'lucide-react'
+import { Copy, Check, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -35,20 +35,8 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
   const defaultText = useMemo(() => buildDefaultRequest(property), [property])
   const [requestText, setRequestText] = useState(defaultText)
   const [copiedRaw, setCopiedRaw] = useState(false)
-  const [waOpened, setWaOpened] = useState(false)
+  const [copiedRequest, setCopiedRequest] = useState(false)
   const [confirming, setConfirming] = useState(false)
-
-  const phone = (property.sender_phone || '').replace(/\D/g, '')
-  // WA internal LIDs look like 14-digit numbers starting with "100" — not real phones
-  const isLid = phone.length >= 13 && phone.startsWith('100')
-  const waUrl = phone && !isLid
-    ? `https://wa.me/${phone}?text=${encodeURIComponent(requestText)}`
-    : null
-
-  function handleClose() {
-    setWaOpened(false)
-    onOpenChange(false)
-  }
 
   async function copyRaw() {
     if (!property.raw_message) return
@@ -57,9 +45,10 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
     setTimeout(() => setCopiedRaw(false), 1500)
   }
 
-  function handleOpenWhatsApp() {
-    window.open(waUrl!, '_blank', 'noopener,noreferrer')
-    setWaOpened(true)
+  async function copyRequest() {
+    await navigator.clipboard.writeText(requestText)
+    setCopiedRequest(true)
+    setTimeout(() => setCopiedRequest(false), 1500)
   }
 
   async function handleConfirmSent() {
@@ -76,29 +65,23 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
       return
     }
     onRequested?.(ts)
-    handleClose()
+    onOpenChange(false)
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Запросить фото</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            {property.source_chat_name && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-0.5">Группа</p>
-                <p className="font-medium truncate">{property.source_chat_name}</p>
-              </div>
-            )}
+          {property.source_chat_name && (
             <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Отправитель</p>
-              <p className="font-medium">{isLid ? 'Номер скрыт (LID)' : phone ? `+${phone}` : '—'}</p>
+              <p className="text-xs text-muted-foreground mb-0.5">Группа</p>
+              <p className="font-medium text-sm">{property.source_chat_name}</p>
             </div>
-          </div>
+          )}
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -116,44 +99,27 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Текст запроса</Label>
-            <Textarea rows={4} value={requestText} onChange={(e) => setRequestText(e.target.value)} />
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Текст запроса</Label>
+              <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" onClick={copyRequest}>
+                {copiedRequest ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                {copiedRequest ? 'Скопировано' : 'Копировать'}
+              </Button>
+            </div>
+            <Textarea rows={3} value={requestText} onChange={(e) => setRequestText(e.target.value)} />
           </div>
 
-          {!phone && (
-            <p className="text-xs text-destructive">У объекта нет номера отправителя — открыть чат не получится.</p>
-          )}
-          {phone && isLid && (
-            <p className="text-xs text-destructive">
-              Номер отправителя ({phone}) — это внутренний ID WhatsApp, а не реальный телефон. Открыть чат через ссылку не получится — найдите этого риелтора вручную в WA.
-            </p>
-          )}
-
-          {waOpened && (
-            <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-lg p-2.5">
-              Вы отправили сообщение риелтору? Подтвердите — и бейдж запроса появится в таблице.
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground bg-muted rounded-lg p-2.5">
+            Найдите риелтора в группе{property.source_chat_name ? ` «${property.source_chat_name}»` : ''} и отправьте им текст запроса. После отправки нажмите «Я отправил».
+          </p>
         </div>
 
         <DialogFooter>
-          {!waOpened ? (
-            <>
-              <Button variant="outline" onClick={handleClose}>Отмена</Button>
-              <Button onClick={handleOpenWhatsApp} disabled={!waUrl}>
-                <ExternalLink />
-                Открыть WhatsApp
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="outline" onClick={handleClose}>Не отправлял</Button>
-              <Button onClick={handleConfirmSent} disabled={confirming}>
-                <MessageCircle />
-                {confirming ? 'Сохраняем...' : 'Я отправил'}
-              </Button>
-            </>
-          )}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Не отправлял</Button>
+          <Button onClick={handleConfirmSent} disabled={confirming}>
+            <MessageCircle />
+            {confirming ? 'Сохраняем...' : 'Я отправил'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
