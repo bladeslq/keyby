@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FileUpload } from '@/components/ui/file-upload'
 import { toast } from 'sonner'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, Trash2, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { AddressInput } from '@/components/ui/address-input'
+import { RequestPhotosDialog } from '@/components/request-photos-dialog'
 
 export default function PropertyEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -26,6 +27,7 @@ export default function PropertyEditPage() {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [requestPhotosOpen, setRequestPhotosOpen] = useState(false)
   const [form, setForm] = useState<Partial<Property>>({
     status: 'draft',
     photos: [],
@@ -199,8 +201,28 @@ export default function PropertyEditPage() {
 
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Фотографии</CardTitle>
-            <p className="text-xs text-muted-foreground">Можно перетаскивать файлы прямо в область загрузки или выбирать их вручную.</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">Фотографии</CardTitle>
+                <p className="text-xs text-muted-foreground">Можно перетаскивать файлы прямо в область загрузки или выбирать их вручную.</p>
+                {form.photos_requested_at && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Фото запрошены {new Date(form.photos_requested_at).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' })}
+                  </p>
+                )}
+              </div>
+              {!isNew && form.sender_phone && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRequestPhotosOpen(true)}
+                >
+                  <MessageCircle />
+                  Запросить фото
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <FileUpload
@@ -236,6 +258,15 @@ export default function PropertyEditPage() {
           </Button>
         )}
       </div>
+
+      {!isNew && form.id && (
+        <RequestPhotosDialog
+          open={requestPhotosOpen}
+          onOpenChange={setRequestPhotosOpen}
+          property={form as Property}
+          onRequested={(ts) => set('photos_requested_at', ts)}
+        />
+      )}
 
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent className="max-w-sm">

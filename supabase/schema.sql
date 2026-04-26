@@ -26,9 +26,13 @@ CREATE TABLE properties (
   sender_phone TEXT,
   raw_message TEXT,
   property_number TEXT,
+  photos_requested_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration for existing DB:
+-- ALTER TABLE properties ADD COLUMN IF NOT EXISTS photos_requested_at TIMESTAMPTZ;
 
 -- Clients
 CREATE TABLE clients (

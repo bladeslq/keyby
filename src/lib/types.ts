@@ -25,6 +25,7 @@ export interface Property {
   sender_phone: string | null
   raw_message: string | null
   property_number: string | null
+  photos_requested_at: string | null
   created_at: string
   updated_at: string
 }
