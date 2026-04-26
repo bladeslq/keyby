@@ -53,6 +53,8 @@ export class WhatsAppWorker {
     // groupContexts: key = `${chatId}|${senderPhone}`
     // value = { propertyId: string|null, ts: number, orphanPhotos: [{ url, ts }] }
     this.groupContexts = new Map()
+    // Per-(chat,sender) tail of in-flight handler promise — serializes processing
+    this.senderLocks = new Map()
     this._qrAttempts = 0
     this._reconnectAttempts = 0
     this._photoCleanupInterval = setInterval(() => this._cleanupPhotoRequests(), 5 * 60 * 1000)
@@ -197,6 +199,28 @@ export class WhatsAppWorker {
   }
 
   async _handleMessage(msg) {
+    const chatId = msg.key.remoteJid
+    const senderPhone = msg.key.participant?.split('@')[0] || chatId?.split('@')[0]
+    const lockKey = chatId && senderPhone ? `${chatId}|${senderPhone}` : null
+
+    if (!lockKey) return this._processMessage(msg)
+
+    // Serialize handling for the same (chat, sender) so concurrent upsert events
+    // can't race the parser/webhook (e.g. photos jumping context while a new
+    // listing's text is mid-parse).
+    const prev = this.senderLocks.get(lockKey) || Promise.resolve()
+    const next = prev
+      .catch(() => {})
+      .then(() => this._processMessage(msg))
+      .catch(err => console.error(`[worker:${this.accountId}] handler error for ${lockKey}:`, err.message))
+    this.senderLocks.set(lockKey, next)
+    next.finally(() => {
+      if (this.senderLocks.get(lockKey) === next) this.senderLocks.delete(lockKey)
+    })
+    return next
+  }
+
+  async _processMessage(msg) {
     const chatId = msg.key.remoteJid
     const isGroup = chatId?.endsWith('@g.us')
     const senderPhone = msg.key.participant?.split('@')[0] || chatId?.split('@')[0]
