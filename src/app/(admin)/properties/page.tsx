@@ -94,14 +94,18 @@ export default async function PropertiesPage() {
                   </p>
                 </TableCell>
                 <TableCell>
-                  {p.photos_requested_at ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-blue-50 text-blue-700 border-blue-200">
-                      {new Date(p.photos_requested_at).toLocaleDateString('ru', {
-                        day: 'numeric', month: 'short',
-                      })}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
+                  {p.status === 'waiting_photos' && (
+                    p.photos_requested_at ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-blue-50 text-blue-700 border-blue-200">
+                        {new Date(p.photos_requested_at).toLocaleString('ru', {
+                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                        })}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-gray-100 text-gray-500 border-gray-200">
+                        Не запрошено
+                      </span>
+                    )
                   )}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">

@@ -57,7 +57,7 @@ export function PropertyRowActions({ property }: Props) {
               Редактировать
             </Link>
           </DropdownMenuItem>
-          {property.sender_phone && (
+          {property.status === 'waiting_photos' && property.sender_phone && (
             <DropdownMenuItem onSelect={() => setRequestOpen(true)}>
               <MessageCircle />
               Запросить фото

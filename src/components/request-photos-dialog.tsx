@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Copy, Check, MessageCircle } from 'lucide-react'
+import { Copy, Check, MessageCircle, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -35,12 +35,18 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
   const defaultText = useMemo(() => buildDefaultRequest(property), [property])
   const [requestText, setRequestText] = useState(defaultText)
   const [copiedRaw, setCopiedRaw] = useState(false)
-  const [opening, setOpening] = useState(false)
+  const [waOpened, setWaOpened] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   const phone = (property.sender_phone || '').replace(/\D/g, '')
   const waUrl = phone
     ? `https://wa.me/${phone}?text=${encodeURIComponent(requestText)}`
     : null
+
+  function handleClose() {
+    setWaOpened(false)
+    onOpenChange(false)
+  }
 
   async function copyRaw() {
     if (!property.raw_message) return
@@ -49,9 +55,13 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
     setTimeout(() => setCopiedRaw(false), 1500)
   }
 
-  async function handleOpenWhatsApp() {
-    if (!waUrl) return
-    setOpening(true)
+  function handleOpenWhatsApp() {
+    window.open(waUrl!, '_blank', 'noopener,noreferrer')
+    setWaOpened(true)
+  }
+
+  async function handleConfirmSent() {
+    setConfirming(true)
     const supabase = createClient()
     const ts = new Date().toISOString()
     const { error } = await supabase
@@ -59,18 +69,16 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
       .update({ photos_requested_at: ts })
       .eq('id', property.id)
     if (error) {
-      toast.error('Не удалось записать запрос')
-      setOpening(false)
+      toast.error('Не удалось сохранить')
+      setConfirming(false)
       return
     }
     onRequested?.(ts)
-    window.open(waUrl, '_blank', 'noopener,noreferrer')
-    setOpening(false)
-    onOpenChange(false)
+    handleClose()
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Запросить фото</DialogTitle>
@@ -81,13 +89,7 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">Исходное сообщение риелтора</Label>
               {property.raw_message && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 text-xs"
-                  onClick={copyRaw}
-                >
+                <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" onClick={copyRaw}>
                   {copiedRaw ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
                   {copiedRaw ? 'Скопировано' : 'Копировать'}
                 </Button>
@@ -100,26 +102,38 @@ export function RequestPhotosDialog({ open, onOpenChange, property, onRequested 
 
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Текст запроса</Label>
-            <Textarea
-              rows={4}
-              value={requestText}
-              onChange={(e) => setRequestText(e.target.value)}
-            />
+            <Textarea rows={4} value={requestText} onChange={(e) => setRequestText(e.target.value)} />
           </div>
 
           {!phone && (
-            <p className="text-xs text-destructive">
-              У объекта нет номера отправителя — открыть чат не получится.
+            <p className="text-xs text-destructive">У объекта нет номера отправителя — открыть чат не получится.</p>
+          )}
+
+          {waOpened && (
+            <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+              Вы отправили сообщение риелтору? Подтвердите — и бейдж запроса появится в таблице.
             </p>
           )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
-          <Button onClick={handleOpenWhatsApp} disabled={!waUrl || opening}>
-            <MessageCircle />
-            {opening ? 'Открываем...' : 'Открыть WhatsApp'}
-          </Button>
+          {!waOpened ? (
+            <>
+              <Button variant="outline" onClick={handleClose}>Отмена</Button>
+              <Button onClick={handleOpenWhatsApp} disabled={!waUrl}>
+                <ExternalLink />
+                Открыть WhatsApp
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={handleClose}>Не отправлял</Button>
+              <Button onClick={handleConfirmSent} disabled={confirming}>
+                <MessageCircle />
+                {confirming ? 'Сохраняем...' : 'Я отправил'}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
